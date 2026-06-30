@@ -1,13 +1,14 @@
 ---
 - name: Validate IRIS Nodes Readiness
-  # Target both nodes to prove they are identical and "application-ready"
-  hosts: iris_nodes 
+  hosts: iris_nodes
   become: false
   gather_facts: false
-  vars_files:
-    - ../group_vars/iris_nodes.yml
 
   tasks:
+    - name: Load IRIS configuration variables
+      include_vars:
+        file: "{{ playbook_dir }}/../group_vars/iris_nodes.yml"
+
     - name: Ensure local target directory for validation scripts exists
       file:
         path: /tmp/iris_automation
@@ -16,54 +17,56 @@
       delegate_to: localhost
       run_once: true
 
-    - name: Create ObjectScript validation script (Here-document approach)
+    - name: Create ObjectScript validation script
       copy:
-        dest: /tmp/iris_automation/validate_readiness.os
-        # We output explicit JSON string formatting so Ansible can parse it later
+        dest: "/tmp/iris_automation/{{ inventory_hostname }}-validate_readiness.os"
         content: |
           zn "%SYS"
           set nsExists = ##class(%SYS.Namespace).Exists("{{ namespace }}")
           set glbExists = ##class(SYS.Database).%ExistsId("/usr/irissys/mgr/{{ globals_db | lower }}")
           set rtnExists = ##class(SYS.Database).%ExistsId("/usr/irissys/mgr/{{ routines_db | lower }}")
-          
+          set webAppExists = ##class(Security.Applications).Exists("{{ web_apps[0] }}")
+
+          set autoStartProd = ""
+          if nsExists {
+            zn "{{ namespace }}"
+            set autoStartProd = $get(^Ens.AutoStart)
+          }
+
           write !, "--- VALIDATION JSON ---"
           write !, "{"
           write !, "  ""node"": """_$System.INetInfo.LocalHostName()_""","
           write !, "  ""namespace"": ""{{ namespace }}"","
           write !, "  ""namespace_exists"": "_$select(nsExists:"true",1:"false")_","
           write !, "  ""globals_db_exists"": "_$select(glbExists:"true",1:"false")_","
-          write !, "  ""routines_db_exists"": "_$select(rtnExists:"true",1:"false")
+          write !, "  ""routines_db_exists"": "_$select(rtnExists:"true",1:"false")_","
+          write !, "  ""webapp_exists"": "_$select(webAppExists:"true",1:"false")_","
+          write !, "  ""production_autostart"": """_autoStartProd_""""
           write !, "}"
           write !, "--- END VALIDATION ---"
           halt
         mode: '0644'
       delegate_to: localhost
 
-    - name: Copy validation script into the guest (container)
-      command: docker cp /tmp/iris_automation/validate_readiness.os {{ inventory_hostname }}:/tmp/validate_readiness.os
-      changed_when: false
-
-    - name: Run validation script inside the guest container
-      # The script is now executed entirely within the guest's context
-      command: docker exec {{ inventory_hostname }} sh -c "iris session IRIS < /tmp/validate_readiness.os"
+    - name: Run validation script via iris session
+      shell: docker exec -i {{ inventory_hostname }} iris session IRIS < /tmp/iris_automation/{{ inventory_hostname }}-validate_readiness.os
       register: validation_output
-      # Validation is strictly read-only, so it should never report as 'changed'
-      changed_when: false 
+      changed_when: false
 
     - name: Extract JSON output from ObjectScript execution
       set_fact:
-        # Uses Regex to strip out the IRIS terminal header/footer and grab just the JSON block
-        validation_json: "{{ validation_output.stdout | regex_search('--- VALIDATION JSON ---\\r?\\n(.*?)\\r?\\n--- END VALIDATION ---', '\\1', multiline=True) | first }}"
-
-    - name: Show Machine-Readable JSON Results
+        validation_json: "{{ validation_output.stdout.split('--- VALIDATION JSON ---')[1].split('--- END VALIDATION ---')[0] }}"
+    - name: Show machine-readable JSON results
       debug:
         msg: "{{ validation_json | from_json }}"
 
-    - name: Assert Namespace and Databases exist (Human-Readable Output)
+    - name: Assert configuration exists
       assert:
         that:
           - (validation_json | from_json).namespace_exists == true
           - (validation_json | from_json).globals_db_exists == true
           - (validation_json | from_json).routines_db_exists == true
-        fail_msg: "Validation failed: Required namespace or databases are missing on {{ inventory_hostname }}"
-        success_msg: "Validation passed: Node {{ inventory_hostname }} is application-ready."
+          - (validation_json | from_json).webapp_exists == true
+          - (validation_json | from_json).production_autostart == production.class
+        fail_msg: "Validation failed: configuration is missing on {{ inventory_hostname }}"
+        success_msg: "Validation passed: node {{ inventory_hostname }} is application-ready."

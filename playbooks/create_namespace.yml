@@ -4,10 +4,12 @@
   hosts: iris_nodes 
   become: false # Run as the designated automation user (requires least-privilege setup)
   gather_facts: false
-  vars_files:
-    - ../group_vars/iris_nodes.yml
 
   tasks:
+    - name: Load IRIS configuration variables
+      include_vars:
+        file: "{{ playbook_dir }}/../group_vars/iris_nodes.yml"
+
     - name: Ensure target directory for CPF merge file exists
       file:
         path: /tmp/iris_automation

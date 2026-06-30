@@ -1,13 +1,15 @@
 - name: Stop the local IRIS stack
   hosts: localhost
   gather_facts: false
-  vars_files:
-    - ../group_vars/all.yml
   vars:
     project_root: "{{ playbook_dir }}/.."
     compose_file: "{{ project_root }}/docker-compose.yml"
 
   tasks:
+    - name: Load shared stack variables
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../group_vars/all.yml"
+
     - name: Stop containers with docker compose
       ansible.builtin.command:
         argv:

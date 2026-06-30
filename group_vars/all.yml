@@ -21,7 +21,7 @@ iris_key_targets:
 service_ports:
   - name: irisa superserver
     host: 127.0.0.1
-    port: 51773
+    port: 51774
   - name: irisa web
     host: 127.0.0.1
     port: 52773

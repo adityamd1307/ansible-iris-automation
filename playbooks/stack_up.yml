@@ -1,13 +1,15 @@
 - name: Start the local IRIS stack
   hosts: localhost
   gather_facts: false
-  vars_files:
-    - ../group_vars/all.yml
   vars:
     project_root: "{{ playbook_dir }}/.."
     compose_file: "{{ project_root }}/docker-compose.yml"
 
   tasks:
+    - name: Load shared stack variables
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../group_vars/all.yml"
+
     - name: Start containers with docker compose
       ansible.builtin.command:
         argv:
@@ -32,3 +34,7 @@
     - name: Show compose output
       ansible.builtin.debug:
         msg: "{{ (compose_up.stdout_lines + compose_up.stderr_lines) | default([]) }}"
+
+    - name: Wait for IRIS internal engine initialization
+      ansible.builtin.pause:
+        seconds: 5

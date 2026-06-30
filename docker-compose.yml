@@ -18,7 +18,8 @@ services:
       - ISC_DATA_DIRECTORY=/iris-shared/durable
 
     volumes:
-      - ./irisa:/iris-shared
+      - ./irisa/iris.key:/iris-shared/iris.key:ro
+      - irisa_durable:/iris-shared/durable
 
     command: --key /iris-shared/iris.key
 
@@ -48,7 +49,8 @@ services:
       - ISC_DATA_DIRECTORY=/iris-shared/durable
 
     volumes:
-      - ./irisb:/iris-shared
+      - ./irisb/iris.key:/iris-shared/iris.key:ro
+      - irisb_durable:/iris-shared/durable
 
     command: --key /iris-shared/iris.key
 
@@ -78,7 +80,7 @@ services:
       - ISC_CSP_INI_FILE=/webgateway-shared/CSP.ini
 
     volumes:
-      - ./webgatewaya:/webgateway-shared
+      - webgatewaya_durable:/webgateway-shared/durable
 
     depends_on:
       - irisa
@@ -106,7 +108,7 @@ services:
       - ISC_CSP_INI_FILE=/webgateway-shared/CSP.ini
 
     volumes:
-      - ./webgatewayb:/webgateway-shared
+      - webgatewayb_durable:/webgateway-shared/durable
 
     depends_on:
       - irisb
@@ -133,7 +135,7 @@ services:
       - ISC_DATA_DIRECTORY=/arbiter-shared/durable
 
     volumes:
-      - ./arbiter:/arbiter-shared
+      - arbiter_durable:/arbiter-shared/durable
 
     networks:
       iris_net:
@@ -173,3 +175,10 @@ networks:
       config:
         - subnet: 172.28.0.0/16
           gateway: 172.28.0.1
+
+volumes:
+  irisa_durable:
+  irisb_durable:
+  webgatewaya_durable:
+  webgatewayb_durable:
+  arbiter_durable:
