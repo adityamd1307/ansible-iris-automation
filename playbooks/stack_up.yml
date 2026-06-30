@@ -1,0 +1,34 @@
+- name: Start the local IRIS stack
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all.yml
+  vars:
+    project_root: "{{ playbook_dir }}/.."
+    compose_file: "{{ project_root }}/docker-compose.yml"
+
+  tasks:
+    - name: Start containers with docker compose
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - --project-name
+          - "{{ compose_project_name }}"
+          - --file
+          - "{{ compose_file }}"
+          - up
+          - -d
+        chdir: "{{ project_root }}"
+      register: compose_up
+      changed_when: >-
+        'Created' in (compose_up.stdout ~ compose_up.stderr) or
+        'Started' in (compose_up.stdout ~ compose_up.stderr) or
+        'Recreated' in (compose_up.stdout ~ compose_up.stderr)
+      environment:
+        IRISTAG: "{{ iris_image }}"
+        WEBGTAG: "{{ webgateway_image }}"
+
+    - name: Show compose output
+      ansible.builtin.debug:
+        msg: "{{ (compose_up.stdout_lines + compose_up.stderr_lines) | default([]) }}"

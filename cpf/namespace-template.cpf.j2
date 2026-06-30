@@ -1,0 +1,15 @@
+[Databases]
+; Define the physical databases.
+; The merge mechanism is idempotent: if they exist, it updates settings; if not, it creates them.
+{{ globals_db }} = /usr/irissys/mgr/{{ globals_db | lower }}
+{{ routines_db }} = /usr/irissys/mgr/{{ routines_db | lower }}
+
+[Namespaces]
+; Define the namespace and its default global database
+%ALL = %SYS
+{{ namespace }} = {{ globals_db }}
+
+[Map.{{ namespace }}]
+; Map the default routines and globals to the designated databases
+Global_Default = {{ globals_db }}
+Routine_Default = {{ routines_db }}

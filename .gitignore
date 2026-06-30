@@ -1,0 +1,13 @@
+.env
+*.key
+
+irisa/
+irisb/
+webgatewaya/
+webgatewayb/
+arbiter/
+haproxy/
+
+evidence/*.log
+evidence/*.json
+evidence/*.txt

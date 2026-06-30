@@ -1,0 +1,65 @@
+- name: Prepare local IRIS automation workspace
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all.yml
+  vars:
+    project_root: "{{ playbook_dir }}/.."
+    compose_file: "{{ project_root }}/docker-compose.yml"
+
+  tasks:
+    - name: Create runtime directories used by docker-compose volumes
+      ansible.builtin.file:
+        path: "{{ project_root }}/{{ item }}"
+        state: directory
+      loop: "{{ runtime_dirs }}"
+
+    - name: Write docker compose image tag environment
+      ansible.builtin.copy:
+        dest: "{{ project_root }}/.env"
+        unsafe_writes: true
+        content: |
+          IRISTAG={{ iris_image }}
+          WEBGTAG={{ webgateway_image }}
+
+    - name: Copy IRIS license key when a source path is provided
+      ansible.builtin.copy:
+        src: "{{ iris_key_source }}"
+        dest: "{{ project_root }}/{{ item }}"
+        unsafe_writes: true
+      loop: "{{ iris_key_targets }}"
+      when: iris_key_source | length > 0
+      no_log: true
+
+    - name: Check for IRIS license keys expected by docker-compose
+      ansible.builtin.stat:
+        path: "{{ project_root }}/{{ item }}"
+      loop: "{{ iris_key_targets }}"
+      register: iris_key_stats
+      when: require_iris_key | bool
+
+    - name: Stop early when required IRIS license keys are missing
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+        fail_msg: >-
+          Missing {{ item.item }}. Put iris.key in both irisa/ and irisb/, or run with
+          -e iris_key_source=/path/to/iris.key, or set -e require_iris_key=false if
+          your selected image does not need a key.
+      loop: "{{ iris_key_stats.results | default([]) }}"
+      when: require_iris_key | bool
+
+    - name: Validate docker compose syntax
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - --file
+          - "{{ compose_file }}"
+          - config
+          - --quiet
+        chdir: "{{ project_root }}"
+      changed_when: false
+      environment:
+        IRISTAG: "{{ iris_image }}"
+        WEBGTAG: "{{ webgateway_image }}"

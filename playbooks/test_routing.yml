@@ -1,0 +1,19 @@
+---
+- name: Test HAProxy to IRIS Application Routing
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Ensure HAProxy routes to IRIS Web Gateway
+      ansible.builtin.uri:
+        url: "http://localhost:8080/csp/sys/UtilHome.csp"
+        method: GET
+        status_code: 200
+        return_content: true
+      register: web_response
+      failed_when: "'InterSystems IRIS' not in web_response.content"
+      
+    - name: Output success message
+      ansible.builtin.debug:
+        msg: "Routing test passed successfully! HAProxy is serving IRIS content."

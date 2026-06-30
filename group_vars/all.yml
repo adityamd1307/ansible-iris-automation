@@ -1,0 +1,42 @@
+compose_project_name: iris-automation
+
+iris_image: "{{ lookup('env', 'IRISTAG') | default('containers.intersystems.com/intersystems/iris:latest-em', true) }}"
+webgateway_image: "{{ lookup('env', 'WEBGTAG') | default('containers.intersystems.com/intersystems/webgateway:latest-em', true) }}"
+
+iris_key_source: ""
+require_iris_key: true
+
+runtime_dirs:
+  - irisa
+  - irisb
+  - webgatewaya
+  - webgatewayb
+  - arbiter
+  - haproxy
+
+iris_key_targets:
+  - irisa/iris.key
+  - irisb/iris.key
+
+service_ports:
+  - name: irisa superserver
+    host: 127.0.0.1
+    port: 51773
+  - name: irisa web
+    host: 127.0.0.1
+    port: 52773
+  - name: irisb superserver
+    host: 127.0.0.1
+    port: 61773
+  - name: irisb web
+    host: 127.0.0.1
+    port: 62773
+  - name: webgatewaya
+    host: 127.0.0.1
+    port: 8081
+  - name: webgatewayb
+    host: 127.0.0.1
+    port: 8082
+  - name: haproxy
+    host: 127.0.0.1
+    port: 8080
