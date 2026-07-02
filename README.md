@@ -50,10 +50,13 @@ ansible-playbook playbooks/stack_down.yml -i inventories/poc
 `playbooks/configure.yml` converges each IRIS node to the declarative
 desired state in `inventories/<env>/group_vars/all.yml`, in order:
 
-1. `setup_databases.yml`  - physical databases via **CPF merge**
+1. `setup_databases.yml`  - database definition via **CPF merge**, then
+   physical `IRIS.DAT` + `%DB_<name>` resource via guarded **ObjectScript**
+   (a runtime merge registers the definition but does not create the file)
 2. `create_namespace.yml` - namespace + mappings via **CPF merge**
 3. `setup_webapp.yml`     - CSP web app via guarded **ObjectScript**
-4. `setup_security.yml`   - services (CPF) + roles/password (guarded ObjectScript)
+4. `setup_security.yml`   - services + roles/password via guarded **ObjectScript**
+   (CPF has no services section)
 5. `setup_production.yml` - interop production auto-start (guarded ObjectScript)
 6. `validate_nodes.yml`   - read-only node readiness incl. production (asserts + JSON)
 7. `validate_mirror.yml`  - read-only mirror readiness (arbiter + journaling)

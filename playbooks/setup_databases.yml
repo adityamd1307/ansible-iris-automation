@@ -53,3 +53,25 @@
     - name: Show database merge output
       ansible.builtin.debug:
         msg: "{{ merge_result.stdout_lines | default([]) }}"
+
+    # A runtime CPF merge only registers the database *definition*; it does
+    # not instantiate the physical IRIS.DAT. Create the physical database
+    # via guarded ObjectScript so the namespace mapping resolves to a real,
+    # mountable database. Idempotent: only creates when missing.
+    - name: Stage and push physical database creation script
+      ansible.builtin.include_tasks: tasks/push_file.yml
+      vars:
+        src_template: "{{ playbook_dir }}/../objectscript/create_databases.cos.j2"
+        staged_name: "create_databases.cos"
+        remote_path: "/tmp/create_databases.cos"
+
+    - name: Ensure physical databases exist (guarded ObjectScript)
+      ansible.builtin.include_tasks: tasks/iris_session.yml
+      vars:
+        remote_path: "/tmp/create_databases.cos"
+        session_label: "create databases"
+        session_changed_when: "'CREATED' in (session_result.stdout | default(''))"
+
+    - name: Show physical database creation output
+      ansible.builtin.debug:
+        msg: "{{ session_result.stdout_lines | default([]) }}"

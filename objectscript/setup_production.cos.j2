@@ -10,17 +10,15 @@
 ; non-interop namespace (or missing production class) skips cleanly
 ; instead of failing the run. Auto-start config must be applied to BOTH
 ; nodes because interop settings are not mirrored.
-zn "{{ namespace }}"
+;
+; Each executable line is a SINGLE complete statement (the whole guarded
+; try/catch is on one line): `iris session` reads stdin as a terminal
+; REPL and cannot continue a { } block across input lines.
 write !, "--- PRODUCTION SETUP ---"
-try {
 {% if production.auto_start | default(false) %}
-  set desired="{{ production.class }}"
-  set cur=##class(Ens.Director).GetAutoStartProduction()
-  if cur'=desired { set sc=##class(Ens.Director).SetAutoStart(desired) write !,"SET AUTOSTART "_desired_" sc="_$system.Status.GetErrorText(sc) } else { write !,"EXISTS AUTOSTART "_desired }
+try { zn "{{ namespace }}" set desired="{{ production.class }}" set cur=##class(Ens.Director).GetAutoStartProduction() if cur'=desired { set sc=##class(Ens.Director).SetAutoStart(desired) write !,"SET AUTOSTART "_desired_" sc="_$system.Status.GetErrorText(sc) } else { write !,"EXISTS AUTOSTART "_desired } } catch e { write !,"SKIP interop-not-enabled-or-missing-class: "_e.DisplayString() }
 {% else %}
-  set cur=##class(Ens.Director).GetAutoStartProduction()
-  if cur'="" { set sc=##class(Ens.Director).SetAutoStart("") write !,"CLEARED AUTOSTART was "_cur } else { write !,"EXISTS no-autostart" }
+try { zn "{{ namespace }}" set cur=##class(Ens.Director).GetAutoStartProduction() if cur'="" { set sc=##class(Ens.Director).SetAutoStart("") write !,"CLEARED AUTOSTART was "_cur } else { write !,"EXISTS no-autostart" } } catch e { write !,"SKIP interop-not-enabled-or-missing-class: "_e.DisplayString() }
 {% endif %}
-} catch e { write !,"SKIP interop-not-enabled-or-missing-class: "_e.DisplayString() }
 write !, "--- END PRODUCTION SETUP ---"
 halt

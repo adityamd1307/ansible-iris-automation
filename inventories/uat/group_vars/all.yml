@@ -33,7 +33,7 @@ security_roles:
     resources: "%DB_{{ globals_db }}:RW,%DB_{{ routines_db }}:RW"
 
 security_services:
-  - name: "%Service_CSP"
+  - name: "%Service_WebGateway"
     enabled: true
 
 production:

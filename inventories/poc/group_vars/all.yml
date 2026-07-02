@@ -61,9 +61,12 @@ security_roles:
     description: "Application role for the TRAINING namespace"
     resources: "%DB_{{ globals_db }}:RW,%DB_{{ routines_db }}:RW"
 
-# IRIS services to enable/leave enabled for the POC.
+# IRIS services to enable/leave enabled for the POC. Applied via guarded
+# Security.Services ObjectScript (not CPF - a merge has no services
+# section). %Service_WebGateway is the CSP/web service in modern IRIS
+# (the legacy %Service_CSP no longer exists). Unknown services are skipped.
 security_services:
-  - name: "%Service_CSP"
+  - name: "%Service_WebGateway"
     enabled: true
 
 # ---------------------------------------------------------------------

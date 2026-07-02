@@ -1,5 +1,5 @@
 ; =====================================================================
-; Read-only MIRROR readiness validation -> emits JSON
+; Read-only MIRROR readiness validation -> emits single-line JSON
 ; =====================================================================
 ; Rendered by playbooks/validate_mirror.yml. Reports the prerequisites
 ; for this node to participate in a mirror. Strictly read-only.
@@ -8,20 +8,24 @@
 ; enabled, and the node either is already a mirror member or is eligible
 ; to become one. Arbiter reachability is validated separately by the
 ; playbook (network check) so this works even before a mirror is built.
+;
+; Execution notes: every line is a single complete statement and the
+; result is emitted as ONE line "MIRROR_JSON:{...}" so the playbook can
+; extract it without fragile multi-line regex.
 zn "%SYS"
+set q=$char(34)
 set memberType="NotMember",isMember=0,journalOn=0
-try { set memberType=$SYSTEM.Mirror.GetMemberType() } catch { set memberType="NotMember" }
+try { set memberType=$SYSTEM.Mirror.GetMemberType() } catch e { set memberType="NotMember" }
 set:(memberType'="NotMember")&&(memberType'="") isMember=1
-try { set journalOn=$select(##class(%SYS.Journal.System).GetCurrentState()'="":1,1:0) } catch { set journalOn=1 }
+try { set journalOn=$select(##class(%SYS.Journal.System).GetCurrentState()'="":1,1:0) } catch e { set journalOn=1 }
 set expectedRole="{{ mirror_role | default('unknown') }}"
-write !, "--- MIRROR JSON ---"
-write !, "{"
-write !, "  ""node"": """_$System.INetInfo.LocalHostName()_""","
-write !, "  ""expected_role"": """_expectedRole_""","
-write !, "  ""member_type"": """_memberType_""","
-write !, "  ""is_mirror_member"": "_$select(isMember:"true",1:"false")_","
-write !, "  ""journaling_enabled"": "_$select(journalOn:"true",1:"false")_","
-write !, "  ""instance_reachable"": true"
-write !, "}"
-write !, "--- END MIRROR ---"
+set j="{"
+set j=j_q_"node"_q_":"_q_$System.INetInfo.LocalHostName()_q_","
+set j=j_q_"expected_role"_q_":"_q_expectedRole_q_","
+set j=j_q_"member_type"_q_":"_q_memberType_q_","
+set j=j_q_"is_mirror_member"_q_":"_$select(isMember:"true",1:"false")_","
+set j=j_q_"journaling_enabled"_q_":"_$select(journalOn:"true",1:"false")_","
+set j=j_q_"instance_reachable"_q_":true"
+set j=j_"}"
+write !,"MIRROR_JSON:"_j
 halt

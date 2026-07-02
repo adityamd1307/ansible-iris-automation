@@ -11,10 +11,14 @@ Given a two-node IRIS topology (`irisa` primary, `irisb` backup, plus an
 arbiter, two web gateways and HAProxy), the automation converges each
 node to a declarative desired state:
 
-1. **Databases** created via CPF merge (`cpf/database-template.cpf.j2`)
+1. **Databases** - definition via CPF merge (`cpf/database-template.cpf.j2`),
+   then physical `IRIS.DAT` + `%DB_<name>` resource via guarded ObjectScript
+   (`objectscript/create_databases.cos.j2`; a runtime merge registers the
+   definition but does not instantiate the physical database)
 2. **Namespace + mappings** created via CPF merge (`cpf/namespace-template.cpf.j2`)
 3. **Web application** created via guarded ObjectScript (`objectscript/setup_webapp.cos.j2`)
-4. **Security** (services via CPF, roles/password via guarded ObjectScript)
+4. **Security** - services + roles/password via guarded ObjectScript
+   (`objectscript/setup_security.cos.j2`; CPF has no services section)
 5. **Interop production auto-start** via guarded ObjectScript (`objectscript/setup_production.cos.j2`)
 6. **Validation** of node readiness (incl. production status) and **mirror readiness** (read-only, JSON)
 
@@ -53,12 +57,12 @@ inventories/
 examples/
   desired-state.example.yml         Reference desired-state block to copy into a new env
 cpf/
-  database-template.cpf.j2          [Databases] merge
+  database-template.cpf.j2          [Databases] merge (definition only)
   namespace-template.cpf.j2         [Namespaces] + [Map.<ns>] merge
-  services-template.cpf.j2          Service enablement merge
 objectscript/
+  create_databases.cos.j2           Guarded physical IRIS.DAT + %DB_<name> resource
   setup_webapp.cos.j2               Guarded CSP app create/modify
-  setup_security.cos.j2             Guarded roles + optional password rotation
+  setup_security.cos.j2             Guarded services + roles + optional password rotation
   setup_production.cos.j2           Guarded interop production auto-start
   validate_readiness.cos.j2         Read-only node readiness (incl. production) -> JSON
   validate_mirror.cos.j2            Read-only mirror readiness -> JSON
@@ -165,8 +169,11 @@ ansible-playbook playbooks/setup_security.yml -i inventories/poc \
 | `Ansible requires the locale encoding to be UTF-8; Detected 1252` | Native Windows PowerShell | Run from WSL/Ubuntu or a UTF-8 shell |
 | `Missing irisa/iris.key` (assert in prepare) | No license key staged | Pass `-e iris_key_source=...` or `-e require_iris_key=false` |
 | `wait_for` times out in `verify.yml` | Containers still starting or image pull failing | `docker compose ps`, `docker compose logs <svc>` |
-| CPF merge task fails with `ERROR` | Bad directory or CPF section | Read `merge_result.stdout_lines`; ensure DB dirs exist (run `setup_databases.yml` first) |
-| `from_json` errors in validation | IRIS printed extra banner text | Check the raw `session_result.stdout`; the regex expects the JSON markers |
+| CPF merge task fails with `ERROR` | Bad directory or unsupported CPF section (e.g. a services section - `ERROR #415`) | Read `merge_result.stdout_lines`; services are enabled via ObjectScript, not CPF (see mechanism-mapping) |
+| `<DIRECTORY>` when entering the namespace | Physical `IRIS.DAT` not created (definition-only merge) | Run `setup_databases.yml` - it creates the physical DB via guarded ObjectScript after the merge |
+| Role create fails `#892 Resource ... does not exist` | `%DB_<name>` resource missing | Run `setup_databases.yml` first - it creates/binds the DB resources the role references |
+| `<SYNTAX>` in an ObjectScript step | Multi-line `{ }` block fed to the `iris session` REPL | Keep each statement (whole `try {...} catch {...}`) on one line; no `$$$` macros |
+| `from_json` errors in validation | JSON line not found/parsed | Check `session_result.stdout` for the `READINESS_JSON:`/`MIRROR_JSON:` line the playbook selects |
 | Mirror validation fails on journaling | Journaling disabled | Enable journaling, or set `mirror_requires_journaling=false` for a pre-mirror node |
 
 More detail and partial-failure recovery: `docs/failure-modes.md`.

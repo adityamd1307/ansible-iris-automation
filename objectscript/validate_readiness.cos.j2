@@ -1,5 +1,5 @@
 ; =====================================================================
-; Read-only node readiness validation -> emits JSON
+; Read-only node readiness validation -> emits single-line JSON
 ; =====================================================================
 ; Rendered by playbooks/validate_nodes.yml. Verifies the namespace,
 ; databases and web application exist, and reports interoperability
@@ -10,32 +10,32 @@
 ; runtime status on the primary from failover readiness on the backup
 ; (a backup's mirrored DBs are read-only, so its production is typically
 ; not running even though it is "ready").
+;
+; Execution notes:
+;  - Every line is a single complete statement. `iris session` reads
+;    stdin as a terminal REPL and cannot continue a { } block across
+;    input lines, so the guarded interop probe is a single-line try.
+;  - The result is emitted as ONE line "READINESS_JSON:{...}" so the
+;    playbook can extract it without fragile multi-line regex.
 zn "%SYS"
-set nsExists = ##class(%SYS.Namespace).Exists("{{ namespace }}")
-set glbExists = ##class(SYS.Database).%ExistsId("{{ databases[0].directory }}")
-set rtnExists = ##class(SYS.Database).%ExistsId("{{ databases[1].directory }}")
-set appExists = ##class(Security.Applications).Exists("{{ web_apps[0].path }}")
+set q=$char(34)
+set nsExists=##class(%SYS.Namespace).Exists("{{ namespace }}")
+set glbExists=##class(SYS.Database).%ExistsId("{{ databases[0].directory }}/")
+set rtnExists=##class(SYS.Database).%ExistsId("{{ databases[1].directory }}/")
+set appExists=##class(Security.Applications).Exists("{{ web_apps[0].path }}")
 set prodAutoStart="",prodConfigured=0,prodRunning=0
-try {
-  zn "{{ namespace }}"
-  set prodAutoStart=##class(Ens.Director).GetAutoStartProduction()
-  set prodConfigured=(prodAutoStart'="")
-  do ##class(Ens.Director).GetProductionStatus(.pName,.pState)
-  set prodRunning=(pState=1)
-  zn "%SYS"
-} catch e { }
-write !, "--- VALIDATION JSON ---"
-write !, "{"
-write !, "  ""node"": """_$System.INetInfo.LocalHostName()_""","
-write !, "  ""namespace"": ""{{ namespace }}"","
-write !, "  ""mirror_role"": ""{{ mirror_role | default('unknown') }}"","
-write !, "  ""namespace_exists"": "_$select(nsExists:"true",1:"false")_","
-write !, "  ""globals_db_exists"": "_$select(glbExists:"true",1:"false")_","
-write !, "  ""routines_db_exists"": "_$select(rtnExists:"true",1:"false")_","
-write !, "  ""web_app_exists"": "_$select(appExists:"true",1:"false")_","
-write !, "  ""production_autostart"": """_prodAutoStart_""","
-write !, "  ""production_configured"": "_$select(prodConfigured:"true",1:"false")_","
-write !, "  ""production_running"": "_$select(prodRunning:"true",1:"false")
-write !, "}"
-write !, "--- END VALIDATION ---"
+try { zn "{{ namespace }}" set prodAutoStart=##class(Ens.Director).GetAutoStartProduction() set prodConfigured=(prodAutoStart'="") do ##class(Ens.Director).GetProductionStatus(.pName,.pState) set prodRunning=(+$get(pState)=1) zn "%SYS" } catch e { set prodRunning=0 }
+set j="{"
+set j=j_q_"node"_q_":"_q_$System.INetInfo.LocalHostName()_q_","
+set j=j_q_"namespace"_q_":"_q_"{{ namespace }}"_q_","
+set j=j_q_"mirror_role"_q_":"_q_"{{ mirror_role | default('unknown') }}"_q_","
+set j=j_q_"namespace_exists"_q_":"_$select(nsExists:"true",1:"false")_","
+set j=j_q_"globals_db_exists"_q_":"_$select(glbExists:"true",1:"false")_","
+set j=j_q_"routines_db_exists"_q_":"_$select(rtnExists:"true",1:"false")_","
+set j=j_q_"web_app_exists"_q_":"_$select(appExists:"true",1:"false")_","
+set j=j_q_"production_autostart"_q_":"_q_prodAutoStart_q_","
+set j=j_q_"production_configured"_q_":"_$select(prodConfigured:"true",1:"false")_","
+set j=j_q_"production_running"_q_":"_$select(prodRunning:"true",1:"false")
+set j=j_"}"
+write !,"READINESS_JSON:"_j
 halt

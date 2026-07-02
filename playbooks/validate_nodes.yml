@@ -28,21 +28,28 @@
         remote_path: "/tmp/validate_readiness.cos"
         session_label: "node readiness"
 
-    - name: Extract JSON block from validation output
+    # Extract the single "READINESS_JSON:{...}" line and parse it to a dict
+    # in one step. Parsing here (rather than storing the raw string and
+    # calling from_json later) avoids Ansible implicitly turning the
+    # JSON-looking string back into a dict, which broke a second from_json.
+    - name: Extract and parse machine-readable readiness result
       ansible.builtin.set_fact:
-        validation_json: "{{ session_result.stdout | regex_search('--- VALIDATION JSON ---\\r?\\n(.*?)\\r?\\n--- END VALIDATION ---', '\\1', multiline=True) | first }}"
+        readiness: >-
+          {{ (session_result.stdout_lines
+              | select('match', '^READINESS_JSON:')
+              | list | last | regex_replace('^READINESS_JSON:', '')) | from_json }}
 
     - name: Show machine-readable readiness result
       ansible.builtin.debug:
-        msg: "{{ validation_json | from_json }}"
+        msg: "{{ readiness }}"
 
     - name: Assert node is application-ready (namespace/db/web app/security)
       ansible.builtin.assert:
         that:
-          - (validation_json | from_json).namespace_exists == true
-          - (validation_json | from_json).globals_db_exists == true
-          - (validation_json | from_json).routines_db_exists == true
-          - (validation_json | from_json).web_app_exists == true
+          - readiness.namespace_exists == true
+          - readiness.globals_db_exists == true
+          - readiness.routines_db_exists == true
+          - readiness.web_app_exists == true
         fail_msg: "Validation FAILED: required namespace/databases/web app missing on {{ inventory_hostname }}"
         success_msg: "Validation PASSED: {{ inventory_hostname }} is application-ready."
 
@@ -52,8 +59,8 @@
           # Auto-start must be CONFIGURED on every node (failover readiness),
           # but the production only needs to be RUNNING on the current primary
           # (a backup's mirrored databases are read-only).
-          - (validation_json | from_json).production_configured == true
-          - (mirror_role | default('') != 'primary') or (validation_json | from_json).production_running == true
+          - readiness.production_configured == true
+          - (mirror_role | default('') != 'primary') or (readiness.production_running == true)
         fail_msg: >-
           Production readiness FAILED on {{ inventory_hostname }}
           (role={{ mirror_role | default('unknown') }}). See JSON above.
@@ -66,7 +73,7 @@
     - name: Write readiness evidence (optional)
       ansible.builtin.copy:
         dest: "{{ playbook_dir }}/../evidence/readiness-{{ iris_env }}-{{ inventory_hostname }}.json"
-        content: "{{ validation_json }}\n"
+        content: "{{ readiness | to_nice_json }}\n"
         mode: "0644"
       delegate_to: localhost
       when: write_evidence | bool

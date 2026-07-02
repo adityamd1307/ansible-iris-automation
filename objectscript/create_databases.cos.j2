@@ -1,0 +1,29 @@
+; =====================================================================
+; Guarded / idempotent physical database creation
+; =====================================================================
+; Rendered by playbooks/setup_databases.yml from the `databases` list.
+;
+; The CPF [Databases] merge (cpf/database-template.cpf.j2) registers the
+; database *definition* (name -> directory) but a runtime configuration
+; merge does NOT instantiate the physical IRIS.DAT. This guarded step:
+;   1. creates the physical database file when missing, so the namespace
+;      mapping that follows resolves to a real, mountable database;
+;   2. creates a dedicated database resource %DB_<name> (a resource is NOT
+;      auto-created when assigned) so application roles can grant
+;      least-privilege access to specific databases; and
+;   3. binds that resource to the database (default is %DB_%DEFAULT).
+;
+; Idempotent: every action is guarded by an existence/equality check.
+; Run inside %SYS. Every line is a single complete statement so it
+; executes correctly through `iris session` (a terminal REPL that cannot
+; continue a { } block across input lines).
+zn "%SYS"
+write !, "--- DATABASE CREATE ---"
+{% for db in databases %}
+do ##class(%File).CreateDirectoryChain("{{ db.directory }}/")
+if ##class(SYS.Database).%ExistsId("{{ db.directory }}/") { write !,"EXISTS {{ db.name }} {{ db.directory }}" } else { set d=##class(SYS.Database).CreateDatabase("{{ db.directory }}/",.sc) write !,"CREATED {{ db.name }} {{ db.directory }} sc="_$system.Status.GetErrorText(sc) }
+if ##class(Security.Resources).Exists("%DB_{{ db.name }}") { write !,"RESEXISTS %DB_{{ db.name }}" } else { set sc=##class(Security.Resources).Create("%DB_{{ db.name }}","{{ db.name }} database resource","") write !,"RESCREATED %DB_{{ db.name }} sc="_$system.Status.GetErrorText(sc) }
+set db=##class(SYS.Database).%OpenId("{{ db.directory }}/") if $isobject(db)&&(db.ResourceName'="%DB_{{ db.name }}") { set db.ResourceName="%DB_{{ db.name }}" set sc=db.%Save() write !,"BOUND {{ db.name }} -> %DB_{{ db.name }} sc="_$system.Status.GetErrorText(sc) } else { write !,"BOUNDALREADY {{ db.name }}" }
+{% endfor %}
+write !, "--- END DATABASE CREATE ---"
+halt

@@ -2,12 +2,22 @@
 ; Guarded / idempotent security setup
 ; =====================================================================
 ; Rendered by playbooks/setup_security.yml.
+;  - Enables IRIS services if present (idempotent)
 ;  - Creates application roles/resources if missing (idempotent)
 ;  - Optionally rotates the admin password (only when rotate_admin_password
 ;    is true; the whole task runs with no_log so the value is never logged)
-; Run inside %SYS.
+; Run inside %SYS. Every line is a single complete statement so it executes
+; correctly through `iris session` (the terminal has no multi-line blocks).
+;
+; NOTE: Service enablement is done here in guarded ObjectScript, NOT via CPF
+; merge. A configuration merge has no services section in this IRIS version
+; (an [%Service_*] / [Services] section is rejected with ERROR #415), so
+; Security.Services is the correct mechanism. See docs/mechanism-mapping.md.
 zn "%SYS"
 write !, "--- SECURITY SETUP ---"
+{% for svc in security_services | default([]) %}
+if '##class(Security.Services).Exists("{{ svc.name }}") { write !,"SKIP SERVICE {{ svc.name }} not-present" } else { kill sp do ##class(Security.Services).Get("{{ svc.name }}",.sp) if +$get(sp("Enabled"))={{ 1 if svc.enabled | default(true) else 0 }} { write !,"EXISTS SERVICE {{ svc.name }}" } else { set sp("Enabled")={{ 1 if svc.enabled | default(true) else 0 }} set sc=##class(Security.Services).Modify("{{ svc.name }}",.sp) write !,"CHANGED SERVICE {{ svc.name }} sc="_$system.Status.GetErrorText(sc) } }
+{% endfor %}
 {% for role in security_roles %}
 if '##class(Security.Roles).Exists("{{ role.name }}") { set sc=##class(Security.Roles).Create("{{ role.name }}","{{ role.description | default('') }}","{{ role.resources | default('') }}") write !,"CREATED ROLE {{ role.name }} sc="_$system.Status.GetErrorText(sc) } else { set sc=##class(Security.Roles).Modify("{{ role.name }}",.props) write !,"EXISTS ROLE {{ role.name }}" }
 {% endfor %}
