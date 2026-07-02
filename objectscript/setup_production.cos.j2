@@ -1,0 +1,26 @@
+; =====================================================================
+; Guarded / idempotent interoperability production auto-start
+; =====================================================================
+; Rendered by playbooks/setup_production.yml. Runs INSIDE the interop
+; namespace and configures the auto-start production via Ens.Director.
+;
+; This is done via ObjectScript (not CPF) because auto-start is an
+; operational API setting. It is guarded: the current setting is checked
+; first and only changed if different. Wrapped in try/catch so a
+; non-interop namespace (or missing production class) skips cleanly
+; instead of failing the run. Auto-start config must be applied to BOTH
+; nodes because interop settings are not mirrored.
+zn "{{ namespace }}"
+write !, "--- PRODUCTION SETUP ---"
+try {
+{% if production.auto_start | default(false) %}
+  set desired="{{ production.class }}"
+  set cur=##class(Ens.Director).GetAutoStartProduction()
+  if cur'=desired { set sc=##class(Ens.Director).SetAutoStart(desired) write !,"SET AUTOSTART "_desired_" sc="_$system.Status.GetErrorText(sc) } else { write !,"EXISTS AUTOSTART "_desired }
+{% else %}
+  set cur=##class(Ens.Director).GetAutoStartProduction()
+  if cur'="" { set sc=##class(Ens.Director).SetAutoStart("") write !,"CLEARED AUTOSTART was "_cur } else { write !,"EXISTS no-autostart" }
+{% endif %}
+} catch e { write !,"SKIP interop-not-enabled-or-missing-class: "_e.DisplayString() }
+write !, "--- END PRODUCTION SETUP ---"
+halt

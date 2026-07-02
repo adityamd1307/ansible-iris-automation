@@ -1,0 +1,14 @@
+; =====================================================================
+; CPF MERGE TEMPLATE - Physical databases
+; =====================================================================
+; Rendered by Ansible (playbooks/setup_databases.yml) from the
+; `databases` list in inventories/<env>/group_vars/all.yml.
+;
+; The [Databases] section is applied via `iris merge`, which creates the
+; database if it does not exist and updates it if it does (idempotent).
+; The directory is created by the playbook before the merge runs.
+
+[Databases]
+{% for db in databases %}
+{{ db.name }}={{ db.directory }}
+{% endfor %}

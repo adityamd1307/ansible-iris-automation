@@ -1,0 +1,194 @@
+# Ansible IRIS Automation - Runbook (Week 2 POC, Topic 1)
+
+This runbook lets another engineer **set up, run, verify, troubleshoot,
+and extend** the InterSystems IRIS automation POC without prior context.
+
+---
+
+## 1. What this POC does
+
+Given a two-node IRIS topology (`irisa` primary, `irisb` backup, plus an
+arbiter, two web gateways and HAProxy), the automation converges each
+node to a declarative desired state:
+
+1. **Databases** created via CPF merge (`cpf/database-template.cpf.j2`)
+2. **Namespace + mappings** created via CPF merge (`cpf/namespace-template.cpf.j2`)
+3. **Web application** created via guarded ObjectScript (`objectscript/setup_webapp.cos.j2`)
+4. **Security** (services via CPF, roles/password via guarded ObjectScript)
+5. **Interop production auto-start** via guarded ObjectScript (`objectscript/setup_production.cos.j2`)
+6. **Validation** of node readiness (incl. production status) and **mirror readiness** (read-only, JSON)
+
+See `docs/mechanism-mapping.md` for the full per-item mechanism table
+(CPF vs ObjectScript vs REST) and `architecture/` for the diagram.
+
+Everything is **idempotent** (safe to re-run) and **parameterized** per
+environment. No secrets are committed.
+
+---
+
+## 2. Prerequisites
+
+- Docker with the `docker compose` plugin (for the POC topology)
+- Ansible on the control node (WSL/Ubuntu recommended on Windows; native
+  PowerShell can report a `1252` locale error - see §7)
+- Network access to the InterSystems container images referenced in
+  `group_vars/all.yml`
+- An IRIS license key (`iris.key`) if your chosen image requires one.
+  **Never commit it** - it is git-ignored.
+
+---
+
+## 3. Repository map
+
+```
+ansible.cfg                         Default inventory + settings
+docker-compose.yml                  POC topology (2x IRIS, 2x gateway, arbiter, HAProxy)
+group_vars/
+  all.yml                           Shared infra defaults (images, ports, runtime dirs)
+  vault.example.yml                 Template for the encrypted secrets file (no real secrets)
+inventories/
+  poc/  dev/  sit/  uat/            One inventory per environment
+    hosts.yml                       Nodes + mirror roles (primary/backup)
+    group_vars/all.yml              Per-env desired state (namespace, dbs, web app, security, mirror)
+examples/
+  desired-state.example.yml         Reference desired-state block to copy into a new env
+cpf/
+  database-template.cpf.j2          [Databases] merge
+  namespace-template.cpf.j2         [Namespaces] + [Map.<ns>] merge
+  services-template.cpf.j2          Service enablement merge
+objectscript/
+  setup_webapp.cos.j2               Guarded CSP app create/modify
+  setup_security.cos.j2             Guarded roles + optional password rotation
+  setup_production.cos.j2           Guarded interop production auto-start
+  validate_readiness.cos.j2         Read-only node readiness (incl. production) -> JSON
+  validate_mirror.cos.j2            Read-only mirror readiness -> JSON
+architecture/                       Mermaid architecture diagram (export to PNG)
+playbooks/
+  site.yml                          Infra bring-up + full configure (end to end)
+  prepare.yml stack_up.yml stack_down.yml verify.yml   Infra lifecycle
+  configure.yml                     databases -> namespace -> webapp -> security -> production -> validate
+  setup_databases.yml create_namespace.yml setup_webapp.yml setup_security.yml setup_production.yml
+  validate_nodes.yml validate_mirror.yml test_routing.yml
+  tasks/                            Reusable helpers (push_file, iris_merge, iris_session)
+docs/                               Runbook + mechanism-mapping + failure-modes + secrets + demo-script
+evidence/                           Placeholder for captured run output (git-ignored contents)
+```
+
+---
+
+## 4. First run (POC)
+
+From the repository root:
+
+```bash
+# 1. Bring up infra and configure IRIS in one shot
+ansible-playbook playbooks/site.yml -i inventories/poc \
+  -e iris_key_source=/secure/path/to/iris.key
+
+# If your image does not need a key:
+ansible-playbook playbooks/site.yml -i inventories/poc -e require_iris_key=false
+```
+
+Step-by-step equivalent (useful when debugging a single stage):
+
+```bash
+ansible-playbook playbooks/prepare.yml   -i inventories/poc -e iris_key_source=/path/iris.key
+ansible-playbook playbooks/stack_up.yml  -i inventories/poc
+ansible-playbook playbooks/verify.yml    -i inventories/poc
+ansible-playbook playbooks/configure.yml -i inventories/poc
+```
+
+`configure.yml` on its own runs: databases -> namespace -> web app ->
+security -> node validation -> mirror validation.
+
+---
+
+## 5. Verify
+
+```bash
+# Node readiness (asserts namespace/dbs/web app exist on every node)
+ansible-playbook playbooks/validate_nodes.yml  -i inventories/poc
+
+# Mirror readiness (arbiter reachable + journaling/member state per node)
+ansible-playbook playbooks/validate_mirror.yml -i inventories/poc
+
+# HAProxy -> Web Gateway -> IRIS routing
+ansible-playbook playbooks/test_routing.yml    -i inventories/poc
+```
+
+Capture JSON evidence during validation:
+
+```bash
+ansible-playbook playbooks/validate_nodes.yml -i inventories/poc -e write_evidence=true
+# writes evidence/readiness-poc-<node>.json
+```
+
+---
+
+## 6. Idempotency
+
+Re-running any playbook converges to the same state:
+
+- **CPF merge** updates existing definitions and creates missing ones; it
+  does not duplicate. Tasks mark `changed` only when the merge output
+  indicates a real change.
+- **ObjectScript** setup scripts check `...Exists()` before creating and
+  otherwise modify, printing `CREATED` / `UPDATED` / `EXISTS`. Tasks mark
+  `changed` only when `CREATED`/`PWROTATE` appears.
+- **Validation** playbooks are read-only and never report `changed`.
+
+Prove it: run `configure.yml` twice; the second run should report no
+`CREATED` markers and `changed=0` for the merges.
+
+---
+
+## 7. Secrets
+
+See `docs/secrets-and-security.md`. In short:
+
+- License key: pass `-e iris_key_source=...`; it is copied with
+  `no_log` and is git-ignored.
+- Passwords: stored only in an ansible-vault file
+  (`group_vars/vault.yml`, git-ignored). Rotate the admin password with:
+
+```bash
+ansible-playbook playbooks/setup_security.yml -i inventories/poc \
+  -e rotate_admin_password=true --ask-vault-pass
+```
+
+---
+
+## 8. Troubleshooting
+
+| Symptom | Likely cause | Action |
+| ------- | ------------ | ------ |
+| `Ansible requires the locale encoding to be UTF-8; Detected 1252` | Native Windows PowerShell | Run from WSL/Ubuntu or a UTF-8 shell |
+| `Missing irisa/iris.key` (assert in prepare) | No license key staged | Pass `-e iris_key_source=...` or `-e require_iris_key=false` |
+| `wait_for` times out in `verify.yml` | Containers still starting or image pull failing | `docker compose ps`, `docker compose logs <svc>` |
+| CPF merge task fails with `ERROR` | Bad directory or CPF section | Read `merge_result.stdout_lines`; ensure DB dirs exist (run `setup_databases.yml` first) |
+| `from_json` errors in validation | IRIS printed extra banner text | Check the raw `session_result.stdout`; the regex expects the JSON markers |
+| Mirror validation fails on journaling | Journaling disabled | Enable journaling, or set `mirror_requires_journaling=false` for a pre-mirror node |
+
+More detail and partial-failure recovery: `docs/failure-modes.md`.
+
+---
+
+## 9. Extend the POC
+
+- **New environment**: copy `inventories/poc/` to `inventories/<env>/`,
+  edit `hosts.yml` (real addresses) and `group_vars/all.yml` (desired
+  state). Run any playbook with `-i inventories/<env>`.
+- **New database / mapping**: add to the `databases` list (and mapping in
+  the namespace template if needed). No code change required.
+- **New web app / role**: add to `web_apps` / `security_roles`. The
+  guarded ObjectScript loops over the lists.
+- **New node**: add it to the inventory with a `mirror_role` and
+  `iris_container`. Playbooks target groups, not machines.
+
+---
+
+## 10. Tear down
+
+```bash
+ansible-playbook playbooks/stack_down.yml -i inventories/poc
+```

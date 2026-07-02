@@ -1,3 +1,13 @@
+# =====================================================================
+# End-to-end POC: bring up infrastructure, then configure IRIS
+# =====================================================================
+# Infra (localhost/docker-compose): prepare -> stack_up -> verify
+# Config (iris_nodes):              databases -> namespace -> web app ->
+#                                   security -> validation -> mirror
+#
+# Run:  ansible-playbook playbooks/site.yml -i inventories/poc \
+#         -e iris_key_source=/path/to/iris.key
 - import_playbook: prepare.yml
 - import_playbook: stack_up.yml
 - import_playbook: verify.yml
+- import_playbook: configure.yml

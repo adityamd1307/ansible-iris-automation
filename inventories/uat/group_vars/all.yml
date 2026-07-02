@@ -1,0 +1,52 @@
+---
+# Environment: UAT
+iris_env: uat
+iris_instance: IRIS
+
+# UAT connects over SSH to hosts where `iris` is on PATH.
+iris_exec_mode: direct
+stage_dir: /tmp/iris_automation
+
+namespace: APPUAT
+globals_db: APPUATDATA
+routines_db: APPUATCODE
+db_directory_root: /usr/irissys/mgr
+
+databases:
+  - name: "{{ globals_db }}"
+    directory: "{{ db_directory_root }}/{{ globals_db | lower }}"
+    size_mb: 200
+  - name: "{{ routines_db }}"
+    directory: "{{ db_directory_root }}/{{ routines_db | lower }}"
+    size_mb: 80
+
+web_apps:
+  - path: /csp/appuat
+    namespace: "{{ namespace }}"
+    description: "UAT CSP application"
+    authentication_methods: 32
+    enabled: true
+
+security_roles:
+  - name: APPUAT_APP
+    description: "Application role for the APPUAT namespace"
+    resources: "%DB_{{ globals_db }}:RW,%DB_{{ routines_db }}:RW"
+
+security_services:
+  - name: "%Service_CSP"
+    enabled: true
+
+production:
+  class: APPUAT.Production
+  auto_start: true
+  enabled: true
+production_enforce: false
+
+mirror_enabled: true
+mirror_name: APPUAT_MIRROR
+mirror_arbiter_host: 10.0.30.13
+mirror_arbiter_port: 2188
+mirror_requires_journaling: true
+mirror_databases:
+  - "{{ globals_db }}"
+  - "{{ routines_db }}"

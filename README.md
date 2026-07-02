@@ -23,25 +23,53 @@ Ansible for repeatable setup, start, stop, and verification steps.
 
 ## First Run
 
-From the repository root:
+From the repository root. Pick an environment inventory with `-i`
+(`inventories/poc` for the local docker topology):
 
 ```bash
-ansible-playbook playbooks/prepare.yml -e iris_key_source=/path/to/iris.key
-ansible-playbook playbooks/stack_up.yml
-ansible-playbook playbooks/verify.yml
+ansible-playbook playbooks/prepare.yml  -i inventories/poc -e iris_key_source=/path/to/iris.key
+ansible-playbook playbooks/stack_up.yml -i inventories/poc
+ansible-playbook playbooks/verify.yml   -i inventories/poc
+ansible-playbook playbooks/configure.yml -i inventories/poc
 ```
 
-Or run the full flow:
+Or run the full end-to-end flow (infra bring-up **and** IRIS configuration):
 
 ```bash
-ansible-playbook playbooks/site.yml -e iris_key_source=/path/to/iris.key
+ansible-playbook playbooks/site.yml -i inventories/poc -e iris_key_source=/path/to/iris.key
 ```
 
 To stop the stack:
 
 ```bash
-ansible-playbook playbooks/stack_down.yml
+ansible-playbook playbooks/stack_down.yml -i inventories/poc
 ```
+
+## Configuration flow (Topic 1)
+
+`playbooks/configure.yml` converges each IRIS node to the declarative
+desired state in `inventories/<env>/group_vars/all.yml`, in order:
+
+1. `setup_databases.yml`  - physical databases via **CPF merge**
+2. `create_namespace.yml` - namespace + mappings via **CPF merge**
+3. `setup_webapp.yml`     - CSP web app via guarded **ObjectScript**
+4. `setup_security.yml`   - services (CPF) + roles/password (guarded ObjectScript)
+5. `setup_production.yml` - interop production auto-start (guarded ObjectScript)
+6. `validate_nodes.yml`   - read-only node readiness incl. production (asserts + JSON)
+7. `validate_mirror.yml`  - read-only mirror readiness (arbiter + journaling)
+
+Everything is idempotent and parameterized. Switch environments by
+changing `-i inventories/dev|sit|uat` - no code changes.
+
+## Documentation
+
+- `architecture/ansible-iris-architecture.md` - architecture diagram (Mermaid)
+- `docs/mechanism-mapping.md` - per-item CPF vs ObjectScript vs REST table
+- `docs/ansible-runbook.md` - set up, run, verify, troubleshoot, extend
+- `docs/failure-modes.md` - partial-failure behavior and recovery
+- `docs/secrets-and-security.md` - vault, license key, `no_log`, cleanup
+- `docs/demo-script.md` - step-by-step POC demo
+- `examples/desired-state.example.yml` - desired-state template
 
 ## Useful Overrides
 
@@ -78,11 +106,20 @@ the issue is the local Ansible runtime encoding.
 - Web Gateway B: `http://localhost:8082`
 - HAProxy: `http://localhost:8080`
 
+## Secrets
+
+No secrets are committed. The IRIS license key and all passwords are kept
+out of git and out of logs. See `docs/secrets-and-security.md`. In short:
+
+- License key: `-e iris_key_source=/secure/path/iris.key` (copied with
+  `no_log`, git-ignored).
+- Passwords: `group_vars/vault.yml` (ansible-vault encrypted, git-ignored).
+  Template: `group_vars/vault.example.yml`.
+
 ## What To Automate Next
 
 Good next steps are:
 
-- add CPF files under `cpf/` and mount or apply them during startup
-- add ObjectScript deployment under `objectscript/`
-- add Ansible roles once the playbooks grow beyond this starter shape
-- add evidence collection tasks under `evidence/` for repeatable validation
+- convert the flat playbooks into Ansible roles as they grow
+- build an actual mirror (this POC validates mirror *readiness*)
+- add CI to lint playbooks (`ansible-lint`) and run `--check` dry runs

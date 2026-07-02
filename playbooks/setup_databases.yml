@@ -1,0 +1,55 @@
+---
+# =====================================================================
+# Create/ensure physical databases via CPF merge (idempotent)
+# =====================================================================
+# Preferred mechanism for databases is CPF merge. Directories are created
+# first (merge does not create the parent directory), then the
+# [Databases] section is merged. Re-running converges without duplicating.
+#
+# Run:  ansible-playbook playbooks/setup_databases.yml -i inventories/poc
+- name: Ensure IRIS physical databases exist
+  hosts: iris_nodes
+  gather_facts: false
+
+  tasks:
+    - name: Create database directories inside container (docker)
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ iris_container | default(inventory_hostname) }}"
+          - mkdir
+          - -p
+          - "{{ item.directory }}"
+      loop: "{{ databases }}"
+      loop_control:
+        label: "{{ item.name }} -> {{ item.directory }}"
+      changed_when: false
+      when: iris_exec_mode == 'docker'
+
+    - name: Create database directories on host (direct)
+      ansible.builtin.file:
+        path: "{{ item.directory }}"
+        state: directory
+        mode: "0755"
+      loop: "{{ databases }}"
+      loop_control:
+        label: "{{ item.name }} -> {{ item.directory }}"
+      when: iris_exec_mode == 'direct'
+
+    - name: Stage and push database CPF merge file
+      ansible.builtin.include_tasks: tasks/push_file.yml
+      vars:
+        src_template: "{{ playbook_dir }}/../cpf/database-template.cpf.j2"
+        staged_name: "database-merge.cpf"
+        remote_path: "/tmp/database-merge.cpf"
+
+    - name: Apply database CPF merge
+      ansible.builtin.include_tasks: tasks/iris_merge.yml
+      vars:
+        remote_path: "/tmp/database-merge.cpf"
+        merge_label: "databases"
+
+    - name: Show database merge output
+      ansible.builtin.debug:
+        msg: "{{ merge_result.stdout_lines | default([]) }}"

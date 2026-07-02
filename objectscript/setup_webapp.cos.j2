@@ -1,0 +1,14 @@
+; =====================================================================
+; Guarded / idempotent CSP web application setup
+; =====================================================================
+; Rendered by playbooks/setup_webapp.yml from the `web_apps` list.
+; Run inside %SYS. Safe to run repeatedly: existing apps are modified,
+; missing apps are created. Emits CREATED/UPDATED/EXISTS markers.
+zn "%SYS"
+write !, "--- WEBAPP SETUP ---"
+{% for app in web_apps %}
+kill p set p("NameSpace")="{{ app.namespace }}",p("Enabled")={{ 1 if app.enabled | default(true) else 0 }},p("AutheEnabled")={{ app.authentication_methods | default(32) }},p("Description")="{{ app.description | default('') }}",p("IsNameSpaceDefault")=0
+if '##class(Security.Applications).Exists("{{ app.path }}") { set sc=##class(Security.Applications).Create("{{ app.path }}",.p) write !,"CREATED {{ app.path }} sc="_$system.Status.GetErrorText(sc) } else { set sc=##class(Security.Applications).Modify("{{ app.path }}",.p) write !,"UPDATED {{ app.path }} sc="_$system.Status.GetErrorText(sc) }
+{% endfor %}
+write !, "--- END WEBAPP SETUP ---"
+halt

@@ -1,54 +1,34 @@
 ---
-- name: Configure IRIS Namespaces and Databases
-  # Targets both primary and backup nodes (assuming 'iris_nodes' is defined in your inventory)
-  hosts: iris_nodes 
-  become: false # Run as the designated automation user (requires least-privilege setup)
+# =====================================================================
+# Create/ensure the namespace and its default mappings via CPF merge
+# =====================================================================
+# Databases must exist first (playbooks/setup_databases.yml). This
+# playbook wires the namespace to its global/routine databases. CPF merge
+# is idempotent, so re-running is safe.
+#
+# Parameterized entirely from inventories/<env>/group_vars/all.yml:
+#   namespace, globals_db, routines_db
+#
+# Run:  ansible-playbook playbooks/create_namespace.yml -i inventories/poc
+- name: Configure IRIS namespace and mappings
+  hosts: iris_nodes
+  become: false
   gather_facts: false
-  vars_files:
-    - ../group_vars/iris_nodes.yml
 
   tasks:
-    - name: Ensure target directory for CPF merge file exists
-      file:
-        path: /tmp/iris_automation
-        state: directory
-        mode: '0755'
+    - name: Stage and push namespace CPF merge file
+      ansible.builtin.include_tasks: tasks/push_file.yml
+      vars:
+        src_template: "{{ playbook_dir }}/../cpf/namespace-template.cpf.j2"
+        staged_name: "namespace-merge.cpf"
+        remote_path: "/tmp/namespace-merge.cpf"
 
-    - name: Template CPF merge file from variables
-      template:
-        src: ../cpf/namespace-template.cpf.j2
-        dest: "/tmp/iris_automation/{{ inventory_hostname }}-namespace-merge.cpf"
-        mode: '0644'
+    - name: Apply namespace CPF merge
+      ansible.builtin.include_tasks: tasks/iris_merge.yml
+      vars:
+        remote_path: "/tmp/namespace-merge.cpf"
+        merge_label: "namespace {{ namespace }}"
 
-    - name: Copy CPF merge file into IRIS container
-      command:
-        argv:
-          - docker
-          - cp
-          - "/tmp/iris_automation/{{ inventory_hostname }}-namespace-merge.cpf"
-          - "{{ inventory_hostname }}:/tmp/namespace-merge.cpf"
-      changed_when: false
-
-    - name: Apply CPF merge to IRIS instance
-      # The iris merge command is idempotent. It will safely apply the declarative state.
-      # We use docker exec if running from a local controller against containers.
-      # If Ansible is connecting via SSH directly into the containers/VMs, remove the docker prefix.
-      command:
-        argv:
-          - docker
-          - exec
-          - "{{ inventory_hostname }}"
-          - iris
-          - merge
-          - IRIS
-          - /tmp/namespace-merge.cpf
-      register: merge_result
-      # Basic idempotency check: only mark as 'changed' if actual updates were made
-      changed_when: >
-        'Merged 0 parameters' not in merge_result.stdout and
-        'already exists' not in merge_result.stdout
-      failed_when: merge_result.rc != 0 or 'ERROR' in merge_result.stdout
-
-    - name: Output Merge Result
-      debug:
-        msg: "{{ merge_result.stdout_lines }}"
+    - name: Show namespace merge output
+      ansible.builtin.debug:
+        msg: "{{ merge_result.stdout_lines | default([]) }}"

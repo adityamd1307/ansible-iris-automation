@@ -1,0 +1,42 @@
+---
+# Reusable: render a Jinja template on the control node and place it on
+# the target IRIS node (docker container or SSH host).
+#
+# Required vars:
+#   src_template : path to the .j2 template (relative to this repo)
+#   staged_name  : filename to use while staging on the control node
+#   remote_path  : absolute destination path on/in the node
+#
+# Relies on: stage_dir, iris_exec_mode, iris_container (docker mode).
+
+- name: "Ensure control-node stage dir exists ({{ staged_name }})"
+  ansible.builtin.file:
+    path: "{{ stage_dir }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  run_once: true
+
+- name: "Render {{ staged_name }} on control node"
+  ansible.builtin.template:
+    src: "{{ src_template }}"
+    dest: "{{ stage_dir }}/{{ inventory_hostname }}-{{ staged_name }}"
+    mode: "0644"
+  delegate_to: localhost
+
+- name: "Copy {{ staged_name }} into container ({{ iris_container | default(inventory_hostname) }})"
+  ansible.builtin.command:
+    argv:
+      - docker
+      - cp
+      - "{{ stage_dir }}/{{ inventory_hostname }}-{{ staged_name }}"
+      - "{{ iris_container | default(inventory_hostname) }}:{{ remote_path }}"
+  changed_when: false
+  when: iris_exec_mode == 'docker'
+
+- name: "Copy {{ staged_name }} onto host (direct)"
+  ansible.builtin.copy:
+    src: "{{ stage_dir }}/{{ inventory_hostname }}-{{ staged_name }}"
+    dest: "{{ remote_path }}"
+    mode: "0644"
+  when: iris_exec_mode == 'direct'

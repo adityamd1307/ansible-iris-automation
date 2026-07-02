@@ -1,0 +1,18 @@
+; =====================================================================
+; CPF MERGE TEMPLATE - Service enablement (baseline security posture)
+; =====================================================================
+; Rendered by Ansible (playbooks/setup_security.yml) from the
+; `security_services` list in inventories/<env>/group_vars/all.yml.
+;
+; Only service *enablement* is done here (CPF-safe and idempotent).
+; Roles, resources, application definitions and password rotation are
+; handled by guarded ObjectScript, because those are not reliably
+; expressible in a CPF merge. No credentials are ever placed in a CPF.
+
+[Startup]
+; Keep the instance in a known, minimal-surface state for the POC.
+
+{% for svc in security_services %}
+[{{ svc.name }}]
+Enabled={{ 1 if svc.enabled else 0 }}
+{% endfor %}

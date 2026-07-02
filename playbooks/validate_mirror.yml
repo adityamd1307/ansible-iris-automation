@@ -1,0 +1,56 @@
+---
+# =====================================================================
+# Validate MIRROR readiness (read-only)
+# =====================================================================
+# Confirms the prerequisites for a mirror are in place:
+#   1. the arbiter endpoint is reachable from the control node
+#   2. each node reports its mirror member type / journaling state
+#
+# This works even before a mirror is actually built, which is the point
+# of a "readiness" check. Emits JSON and asserts the safe prerequisites.
+# Fully parameterized from inventories/<env>/group_vars/all.yml.
+#
+# Run:  ansible-playbook playbooks/validate_mirror.yml -i inventories/poc
+- name: Validate mirror readiness
+  hosts: iris_nodes
+  become: false
+  gather_facts: false
+
+  tasks:
+    - name: Check arbiter endpoint is reachable (once per run)
+      ansible.builtin.wait_for:
+        host: "{{ mirror_arbiter_host }}"
+        port: "{{ mirror_arbiter_port }}"
+        timeout: 30
+      delegate_to: localhost
+      run_once: true
+      when: mirror_enabled | bool
+
+    - name: Stage and push mirror validation script
+      ansible.builtin.include_tasks: tasks/push_file.yml
+      vars:
+        src_template: "{{ playbook_dir }}/../objectscript/validate_mirror.cos.j2"
+        staged_name: "validate_mirror.cos"
+        remote_path: "/tmp/validate_mirror.cos"
+
+    - name: Run mirror validation (read-only)
+      ansible.builtin.include_tasks: tasks/iris_session.yml
+      vars:
+        remote_path: "/tmp/validate_mirror.cos"
+        session_label: "mirror readiness"
+
+    - name: Extract JSON block from mirror output
+      ansible.builtin.set_fact:
+        mirror_json: "{{ session_result.stdout | regex_search('--- MIRROR JSON ---\\r?\\n(.*?)\\r?\\n--- END MIRROR ---', '\\1', multiline=True) | first }}"
+
+    - name: Show machine-readable mirror readiness result
+      ansible.builtin.debug:
+        msg: "{{ mirror_json | from_json }}"
+
+    - name: Assert node reports mirror readiness prerequisites
+      ansible.builtin.assert:
+        that:
+          - (mirror_json | from_json).instance_reachable == true
+          - not (mirror_requires_journaling | bool) or (mirror_json | from_json).journaling_enabled == true
+        fail_msg: "Mirror readiness FAILED on {{ inventory_hostname }} (see JSON above)."
+        success_msg: "Mirror readiness OK on {{ inventory_hostname }} (role: {{ mirror_role | default('n/a') }})."

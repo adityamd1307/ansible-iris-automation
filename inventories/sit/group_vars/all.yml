@@ -1,0 +1,52 @@
+---
+# Environment: SIT
+iris_env: sit
+iris_instance: IRIS
+
+# SIT connects over SSH to hosts where `iris` is on PATH.
+iris_exec_mode: direct
+stage_dir: /tmp/iris_automation
+
+namespace: APPSIT
+globals_db: APPSITDATA
+routines_db: APPSITCODE
+db_directory_root: /usr/irissys/mgr
+
+databases:
+  - name: "{{ globals_db }}"
+    directory: "{{ db_directory_root }}/{{ globals_db | lower }}"
+    size_mb: 100
+  - name: "{{ routines_db }}"
+    directory: "{{ db_directory_root }}/{{ routines_db | lower }}"
+    size_mb: 40
+
+web_apps:
+  - path: /csp/appsit
+    namespace: "{{ namespace }}"
+    description: "SIT CSP application"
+    authentication_methods: 32
+    enabled: true
+
+security_roles:
+  - name: APPSIT_APP
+    description: "Application role for the APPSIT namespace"
+    resources: "%DB_{{ globals_db }}:RW,%DB_{{ routines_db }}:RW"
+
+security_services:
+  - name: "%Service_CSP"
+    enabled: true
+
+production:
+  class: APPSIT.Production
+  auto_start: true
+  enabled: true
+production_enforce: false
+
+mirror_enabled: true
+mirror_name: APPSIT_MIRROR
+mirror_arbiter_host: 10.0.20.13
+mirror_arbiter_port: 2188
+mirror_requires_journaling: true
+mirror_databases:
+  - "{{ globals_db }}"
+  - "{{ routines_db }}"

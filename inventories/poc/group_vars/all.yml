@@ -1,0 +1,96 @@
+---
+# =====================================================================
+# Environment: POC (local docker-compose topology)
+# =====================================================================
+# This file is auto-loaded by Ansible for every host in the `poc`
+# inventory. It holds the *environment specific* desired state so the
+# same playbooks can be reused for DEV / SIT / UAT by pointing at a
+# different inventory (see inventories/<env>/group_vars/all.yml).
+#
+# Nothing in here is a secret. Secrets (admin password, license key)
+# live in an ansible-vault file or are passed at run time. See
+# docs/secrets-and-security.md and group_vars/vault.example.yml.
+
+iris_env: poc
+iris_instance: IRIS
+
+# How Ansible reaches the `iris` binary on each node:
+#   docker  -> control node runs `docker cp` / `docker exec <container> ...`
+#   direct  -> Ansible is connected (SSH/local) to a host where `iris` is on PATH
+# The POC runs IRIS inside local docker containers.
+iris_exec_mode: docker
+
+# Where rendered CPF / ObjectScript files are staged on the control node
+# before being pushed into each node. Git-ignored.
+stage_dir: /tmp/iris_automation
+
+# ---------------------------------------------------------------------
+# Desired state: namespace + databases (applied via CPF merge)
+# ---------------------------------------------------------------------
+namespace: TRAINING
+globals_db: TRAININGDATA
+routines_db: TRAININGCODE
+db_directory_root: /usr/irissys/mgr
+
+# Physical databases to create/ensure. Directories are derived from the
+# database name so this list stays declarative and easy to extend.
+databases:
+  - name: "{{ globals_db }}"
+    directory: "{{ db_directory_root }}/{{ globals_db | lower }}"
+    size_mb: 10
+  - name: "{{ routines_db }}"
+    directory: "{{ db_directory_root }}/{{ routines_db | lower }}"
+    size_mb: 10
+
+# ---------------------------------------------------------------------
+# Web applications (created via guarded ObjectScript)
+# ---------------------------------------------------------------------
+web_apps:
+  - path: /csp/training
+    namespace: "{{ namespace }}"
+    description: "TRAINING POC CSP application"
+    # 32 = Password authentication (bitmask used by Security.Applications)
+    authentication_methods: 32
+    enabled: true
+
+# ---------------------------------------------------------------------
+# Security: application roles + resources (created via guarded ObjectScript)
+# ---------------------------------------------------------------------
+security_roles:
+  - name: TRAINING_APP
+    description: "Application role for the TRAINING namespace"
+    resources: "%DB_{{ globals_db }}:RW,%DB_{{ routines_db }}:RW"
+
+# IRIS services to enable/leave enabled for the POC.
+security_services:
+  - name: "%Service_CSP"
+    enabled: true
+
+# ---------------------------------------------------------------------
+# Interoperability production auto-start (guarded ObjectScript)
+# ---------------------------------------------------------------------
+# Auto-start must be configured on BOTH nodes because IRISSECURITY and
+# interop settings are not mirrored. On a base IRIS image the namespace
+# may not be interop-enabled; the setup is guarded and skips gracefully.
+production:
+  class: TRAINING.Production
+  auto_start: true
+  enabled: true          # run the auto-start automation for this env
+# Hard-assert production readiness in validation. Leave false until the
+# namespace is genuinely interop-enabled with a real production class.
+production_enforce: false
+
+# ---------------------------------------------------------------------
+# Mirror readiness expectations
+# ---------------------------------------------------------------------
+mirror_enabled: true
+mirror_name: TRAINING_MIRROR
+# The arbiter host/port is validated for reachability (mirror readiness).
+mirror_arbiter_host: 127.0.0.1
+mirror_arbiter_port: 21883
+# Journaling must be ON for a node to be mirror-ready.
+mirror_requires_journaling: true
+# Databases expected to be mirrored (validated as present on both nodes).
+mirror_databases:
+  - "{{ globals_db }}"
+  - "{{ routines_db }}"

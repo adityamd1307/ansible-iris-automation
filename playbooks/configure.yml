@@ -1,0 +1,20 @@
+# =====================================================================
+# Full Topic-1 configuration flow (order matters)
+# =====================================================================
+# databases -> namespace/mappings -> web app -> security -> production
+# auto-start -> validation. Every step is idempotent, so this whole
+# playbook is safe to re-run.
+#
+# Run against an environment inventory, e.g.:
+#   ansible-playbook playbooks/configure.yml -i inventories/poc
+#
+# To also rotate the admin password from the vault:
+#   ansible-playbook playbooks/configure.yml -i inventories/poc \
+#     -e rotate_admin_password=true --ask-vault-pass
+- import_playbook: setup_databases.yml
+- import_playbook: create_namespace.yml
+- import_playbook: setup_webapp.yml
+- import_playbook: setup_security.yml
+- import_playbook: setup_production.yml
+- import_playbook: validate_nodes.yml
+- import_playbook: validate_mirror.yml

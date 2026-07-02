@@ -1,0 +1,34 @@
+---
+# =====================================================================
+# Create/ensure CSP web applications (guarded ObjectScript, idempotent)
+# =====================================================================
+# CSP application definitions are not reliably expressible via CPF merge,
+# so they are created with guarded ObjectScript (Security.Applications).
+# Existing apps are modified in place; missing apps are created.
+#
+# Parameterized from the `web_apps` list in group_vars.
+#
+# Run:  ansible-playbook playbooks/setup_webapp.yml -i inventories/poc
+- name: Configure IRIS web applications
+  hosts: iris_nodes
+  become: false
+  gather_facts: false
+
+  tasks:
+    - name: Stage and push web application setup script
+      ansible.builtin.include_tasks: tasks/push_file.yml
+      vars:
+        src_template: "{{ playbook_dir }}/../objectscript/setup_webapp.cos.j2"
+        staged_name: "setup_webapp.cos"
+        remote_path: "/tmp/setup_webapp.cos"
+
+    - name: Run web application setup
+      ansible.builtin.include_tasks: tasks/iris_session.yml
+      vars:
+        remote_path: "/tmp/setup_webapp.cos"
+        session_label: "web apps"
+        session_changed_when: "'CREATED' in (session_result.stdout | default(''))"
+
+    - name: Show web application setup output
+      ansible.builtin.debug:
+        msg: "{{ session_result.stdout_lines | default([]) }}"

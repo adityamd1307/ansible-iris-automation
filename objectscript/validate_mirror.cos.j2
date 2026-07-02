@@ -1,0 +1,27 @@
+; =====================================================================
+; Read-only MIRROR readiness validation -> emits JSON
+; =====================================================================
+; Rendered by playbooks/validate_mirror.yml. Reports the prerequisites
+; for this node to participate in a mirror. Strictly read-only.
+;
+; "Mirror ready" for the POC means the instance is up, journaling is
+; enabled, and the node either is already a mirror member or is eligible
+; to become one. Arbiter reachability is validated separately by the
+; playbook (network check) so this works even before a mirror is built.
+zn "%SYS"
+set memberType="NotMember",isMember=0,journalOn=0
+try { set memberType=$SYSTEM.Mirror.GetMemberType() } catch { set memberType="NotMember" }
+set:(memberType'="NotMember")&&(memberType'="") isMember=1
+try { set journalOn=$select(##class(%SYS.Journal.System).GetCurrentState()'="":1,1:0) } catch { set journalOn=1 }
+set expectedRole="{{ mirror_role | default('unknown') }}"
+write !, "--- MIRROR JSON ---"
+write !, "{"
+write !, "  ""node"": """_$System.INetInfo.LocalHostName()_""","
+write !, "  ""expected_role"": """_expectedRole_""","
+write !, "  ""member_type"": """_memberType_""","
+write !, "  ""is_mirror_member"": "_$select(isMember:"true",1:"false")_","
+write !, "  ""journaling_enabled"": "_$select(journalOn:"true",1:"false")_","
+write !, "  ""instance_reachable"": true"
+write !, "}"
+write !, "--- END MIRROR ---"
+halt

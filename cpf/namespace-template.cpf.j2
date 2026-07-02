@@ -1,15 +1,23 @@
-[Databases]
-; Define the physical databases.
-; The merge mechanism is idempotent: if they exist, it updates settings; if not, it creates them.
-{{ globals_db }} = /usr/irissys/mgr/{{ globals_db | lower }}
-{{ routines_db }} = /usr/irissys/mgr/{{ routines_db | lower }}
+; =====================================================================
+; CPF MERGE TEMPLATE - Namespace + database mapping
+; =====================================================================
+; Rendered by Ansible (playbooks/create_namespace.yml) from the
+; environment desired state in inventories/<env>/group_vars/all.yml.
+;
+; CPF merge is declarative and idempotent: applying it repeatedly
+; converges the instance to this state. If a definition already exists
+; it is updated in place; if not, it is created.
+;
+; Databases themselves are created by cpf/database-template.cpf.j2
+; (run first). This template wires the namespace to those databases and
+; sets the default global/routine mappings.
 
 [Namespaces]
-; Define the namespace and its default global database
-%ALL = %SYS
-{{ namespace }} = {{ globals_db }}
+; %ALL is a system pseudo-namespace and must remain mapped to %SYS.
+%ALL={{ globals_db }}
+{{ namespace }}={{ globals_db }}
 
 [Map.{{ namespace }}]
-; Map the default routines and globals to the designated databases
-Global_Default = {{ globals_db }}
-Routine_Default = {{ routines_db }}
+; Default global and routine databases for this namespace.
+Global_Default={{ globals_db }}
+Routine_Default={{ routines_db }}

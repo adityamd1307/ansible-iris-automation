@@ -1,69 +1,72 @@
 ---
-- name: Validate IRIS Nodes Readiness
-  # Target both nodes to prove they are identical and "application-ready"
-  hosts: iris_nodes 
+# =====================================================================
+# Validate node readiness (read-only) -> asserts desired state present
+# =====================================================================
+# Runs a read-only ObjectScript check on every node and asserts that the
+# namespace, databases and web application exist. Emits machine-readable
+# JSON and (optionally) writes it to evidence/ for the demo.
+#
+# Run:  ansible-playbook playbooks/validate_nodes.yml -i inventories/poc
+- name: Validate IRIS node readiness
+  hosts: iris_nodes
   become: false
   gather_facts: false
-  vars_files:
-    - ../group_vars/iris_nodes.yml
+  vars:
+    write_evidence: false
 
   tasks:
-    - name: Ensure local target directory for validation scripts exists
-      file:
-        path: /tmp/iris_automation
-        state: directory
-        mode: '0755'
-      delegate_to: localhost
-      run_once: true
+    - name: Stage and push readiness validation script
+      ansible.builtin.include_tasks: tasks/push_file.yml
+      vars:
+        src_template: "{{ playbook_dir }}/../objectscript/validate_readiness.cos.j2"
+        staged_name: "validate_readiness.cos"
+        remote_path: "/tmp/validate_readiness.cos"
 
-    - name: Create ObjectScript validation script (Here-document approach)
-      copy:
-        dest: /tmp/iris_automation/validate_readiness.os
-        # We output explicit JSON string formatting so Ansible can parse it later
-        content: |
-          zn "%SYS"
-          set nsExists = ##class(%SYS.Namespace).Exists("{{ namespace }}")
-          set glbExists = ##class(SYS.Database).%ExistsId("/usr/irissys/mgr/{{ globals_db | lower }}")
-          set rtnExists = ##class(SYS.Database).%ExistsId("/usr/irissys/mgr/{{ routines_db | lower }}")
-          
-          write !, "--- VALIDATION JSON ---"
-          write !, "{"
-          write !, "  ""node"": """_$System.INetInfo.LocalHostName()_""","
-          write !, "  ""namespace"": ""{{ namespace }}"","
-          write !, "  ""namespace_exists"": "_$select(nsExists:"true",1:"false")_","
-          write !, "  ""globals_db_exists"": "_$select(glbExists:"true",1:"false")_","
-          write !, "  ""routines_db_exists"": "_$select(rtnExists:"true",1:"false")
-          write !, "}"
-          write !, "--- END VALIDATION ---"
-          halt
-        mode: '0644'
-      delegate_to: localhost
+    - name: Run readiness validation (read-only)
+      ansible.builtin.include_tasks: tasks/iris_session.yml
+      vars:
+        remote_path: "/tmp/validate_readiness.cos"
+        session_label: "node readiness"
 
-    - name: Copy validation script into the guest (container)
-      command: docker cp /tmp/iris_automation/validate_readiness.os {{ inventory_hostname }}:/tmp/validate_readiness.os
-      changed_when: false
+    - name: Extract JSON block from validation output
+      ansible.builtin.set_fact:
+        validation_json: "{{ session_result.stdout | regex_search('--- VALIDATION JSON ---\\r?\\n(.*?)\\r?\\n--- END VALIDATION ---', '\\1', multiline=True) | first }}"
 
-    - name: Run validation script inside the guest container
-      # The script is now executed entirely within the guest's context
-      command: docker exec {{ inventory_hostname }} sh -c "iris session IRIS < /tmp/validate_readiness.os"
-      register: validation_output
-      # Validation is strictly read-only, so it should never report as 'changed'
-      changed_when: false 
-
-    - name: Extract JSON output from ObjectScript execution
-      set_fact:
-        # Uses Regex to strip out the IRIS terminal header/footer and grab just the JSON block
-        validation_json: "{{ validation_output.stdout | regex_search('--- VALIDATION JSON ---\\r?\\n(.*?)\\r?\\n--- END VALIDATION ---', '\\1', multiline=True) | first }}"
-
-    - name: Show Machine-Readable JSON Results
-      debug:
+    - name: Show machine-readable readiness result
+      ansible.builtin.debug:
         msg: "{{ validation_json | from_json }}"
 
-    - name: Assert Namespace and Databases exist (Human-Readable Output)
-      assert:
+    - name: Assert node is application-ready (namespace/db/web app/security)
+      ansible.builtin.assert:
         that:
           - (validation_json | from_json).namespace_exists == true
           - (validation_json | from_json).globals_db_exists == true
           - (validation_json | from_json).routines_db_exists == true
-        fail_msg: "Validation failed: Required namespace or databases are missing on {{ inventory_hostname }}"
-        success_msg: "Validation passed: Node {{ inventory_hostname }} is application-ready."
+          - (validation_json | from_json).web_app_exists == true
+        fail_msg: "Validation FAILED: required namespace/databases/web app missing on {{ inventory_hostname }}"
+        success_msg: "Validation PASSED: {{ inventory_hostname }} is application-ready."
+
+    - name: Assert interoperability production readiness (mirror-role aware)
+      ansible.builtin.assert:
+        that:
+          # Auto-start must be CONFIGURED on every node (failover readiness),
+          # but the production only needs to be RUNNING on the current primary
+          # (a backup's mirrored databases are read-only).
+          - (validation_json | from_json).production_configured == true
+          - (mirror_role | default('') != 'primary') or (validation_json | from_json).production_running == true
+        fail_msg: >-
+          Production readiness FAILED on {{ inventory_hostname }}
+          (role={{ mirror_role | default('unknown') }}). See JSON above.
+        success_msg: "Production readiness OK on {{ inventory_hostname }} (role: {{ mirror_role | default('unknown') }})."
+      when:
+        - production is defined
+        - production.enabled | default(false)
+        - production_enforce | default(false)
+
+    - name: Write readiness evidence (optional)
+      ansible.builtin.copy:
+        dest: "{{ playbook_dir }}/../evidence/readiness-{{ iris_env }}-{{ inventory_hostname }}.json"
+        content: "{{ validation_json }}\n"
+        mode: "0644"
+      delegate_to: localhost
+      when: write_evidence | bool

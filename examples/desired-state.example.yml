@@ -1,0 +1,79 @@
+---
+# =====================================================================
+# Sample desired-state file (Topic 1, deliverable 5.1 #14)
+# =====================================================================
+# Defines namespace, databases, mappings, web app, production class +
+# auto-start, mirrored databases, and target nodes. This is the shape the
+# assignment asks for; the *live* values are stored per environment in
+# inventories/<env>/group_vars/all.yml and consumed by the playbooks.
+#
+# Copy this into a new environment's group_vars/all.yml and adjust.
+# NEVER put secrets here (admin passwords, license keys). Those go into an
+# ansible-vault file (see group_vars/vault.example.yml) or -e at run time.
+
+# --- Target nodes (see inventories/<env>/hosts.yml) ------------------
+# Nodes are declared in the inventory with mirror roles:
+#   iris_primary  -> node A (primary)
+#   iris_backup   -> node B (backup)
+# Playbooks target the `iris_nodes` group, so the same desired state is
+# applied consistently to every node.
+
+# --- Namespace + databases + mappings (applied via CPF merge) --------
+namespace: TRAINING
+globals_db: TRAININGDATA
+routines_db: TRAININGCODE
+db_directory_root: /usr/irissys/mgr
+
+databases:
+  - name: TRAININGDATA
+    directory: /usr/irissys/mgr/trainingdata
+    size_mb: 10
+  - name: TRAININGCODE
+    directory: /usr/irissys/mgr/trainingcode
+    size_mb: 10
+
+# --- Web application (created via guarded ObjectScript) ---------------
+web_apps:
+  - path: /csp/training
+    namespace: TRAINING
+    description: "TRAINING CSP application"
+    authentication_methods: 32   # 32 = password auth
+    enabled: true
+
+# --- Security roles/resources + services -----------------------------
+security_roles:
+  - name: TRAINING_APP
+    description: "Application role for the TRAINING namespace"
+    resources: "%DB_TRAININGDATA:RW,%DB_TRAININGCODE:RW"
+
+security_services:
+  - name: "%Service_CSP"
+    enabled: true
+
+# --- Interoperability production auto-start (guarded ObjectScript) ----
+# Replace `class` with your real production class. Applied to BOTH nodes
+# because interop settings are not mirrored.
+production:
+  class: TRAINING.Production
+  auto_start: true
+  enabled: true
+production_enforce: false   # set true once the namespace is interop-enabled
+
+# --- Mirror readiness ------------------------------------------------
+# Databases that must be mirrored so the promoted backup has the data.
+# System databases (e.g. IRISSECURITY) cannot be mirrored, which is why
+# roles/resources and interop auto-start are applied by automation to
+# every node rather than relying on replication.
+mirror:
+  databases:
+    - TRAININGDATA
+    - TRAININGCODE
+
+mirror_enabled: true
+mirror_name: TRAINING_MIRROR
+mirror_arbiter_host: 127.0.0.1
+mirror_arbiter_port: 21883
+mirror_requires_journaling: true
+mirror_databases:
+  - TRAININGDATA
+  - TRAININGCODE

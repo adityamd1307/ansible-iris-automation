@@ -1,0 +1,55 @@
+---
+# Environment: DEV
+# Same shape as inventories/poc/group_vars/all.yml, different values.
+# Secrets are NOT stored here (see docs/secrets-and-security.md).
+
+iris_env: dev
+iris_instance: IRIS
+
+# DEV connects over SSH to hosts where `iris` is on PATH.
+iris_exec_mode: direct
+stage_dir: /tmp/iris_automation
+
+namespace: APPDEV
+globals_db: APPDEVDATA
+routines_db: APPDEVCODE
+db_directory_root: /usr/irissys/mgr
+
+databases:
+  - name: "{{ globals_db }}"
+    directory: "{{ db_directory_root }}/{{ globals_db | lower }}"
+    size_mb: 50
+  - name: "{{ routines_db }}"
+    directory: "{{ db_directory_root }}/{{ routines_db | lower }}"
+    size_mb: 20
+
+web_apps:
+  - path: /csp/appdev
+    namespace: "{{ namespace }}"
+    description: "DEV CSP application"
+    authentication_methods: 32
+    enabled: true
+
+security_roles:
+  - name: APPDEV_APP
+    description: "Application role for the APPDEV namespace"
+    resources: "%DB_{{ globals_db }}:RW,%DB_{{ routines_db }}:RW"
+
+security_services:
+  - name: "%Service_CSP"
+    enabled: true
+
+production:
+  class: APPDEV.Production
+  auto_start: true
+  enabled: true
+production_enforce: false
+
+mirror_enabled: true
+mirror_name: APPDEV_MIRROR
+mirror_arbiter_host: 10.0.10.13
+mirror_arbiter_port: 2188
+mirror_requires_journaling: true
+mirror_databases:
+  - "{{ globals_db }}"
+  - "{{ routines_db }}"

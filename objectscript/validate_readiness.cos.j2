@@ -1,0 +1,41 @@
+; =====================================================================
+; Read-only node readiness validation -> emits JSON
+; =====================================================================
+; Rendered by playbooks/validate_nodes.yml. Verifies the namespace,
+; databases and web application exist, and reports interoperability
+; production status (auto-start configured + running). Strictly
+; read-only; never reports as changed.
+;
+; Production status is reported per node so the caller can distinguish
+; runtime status on the primary from failover readiness on the backup
+; (a backup's mirrored DBs are read-only, so its production is typically
+; not running even though it is "ready").
+zn "%SYS"
+set nsExists = ##class(%SYS.Namespace).Exists("{{ namespace }}")
+set glbExists = ##class(SYS.Database).%ExistsId("{{ databases[0].directory }}")
+set rtnExists = ##class(SYS.Database).%ExistsId("{{ databases[1].directory }}")
+set appExists = ##class(Security.Applications).Exists("{{ web_apps[0].path }}")
+set prodAutoStart="",prodConfigured=0,prodRunning=0
+try {
+  zn "{{ namespace }}"
+  set prodAutoStart=##class(Ens.Director).GetAutoStartProduction()
+  set prodConfigured=(prodAutoStart'="")
+  do ##class(Ens.Director).GetProductionStatus(.pName,.pState)
+  set prodRunning=(pState=1)
+  zn "%SYS"
+} catch e { }
+write !, "--- VALIDATION JSON ---"
+write !, "{"
+write !, "  ""node"": """_$System.INetInfo.LocalHostName()_""","
+write !, "  ""namespace"": ""{{ namespace }}"","
+write !, "  ""mirror_role"": ""{{ mirror_role | default('unknown') }}"","
+write !, "  ""namespace_exists"": "_$select(nsExists:"true",1:"false")_","
+write !, "  ""globals_db_exists"": "_$select(glbExists:"true",1:"false")_","
+write !, "  ""routines_db_exists"": "_$select(rtnExists:"true",1:"false")_","
+write !, "  ""web_app_exists"": "_$select(appExists:"true",1:"false")_","
+write !, "  ""production_autostart"": """_prodAutoStart_""","
+write !, "  ""production_configured"": "_$select(prodConfigured:"true",1:"false")_","
+write !, "  ""production_running"": "_$select(prodRunning:"true",1:"false")
+write !, "}"
+write !, "--- END VALIDATION ---"
+halt

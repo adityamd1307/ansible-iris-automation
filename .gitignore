@@ -1,6 +1,14 @@
+# --- Secrets: never commit ---
 .env
 *.key
+iris.key
 
+# Encrypted vault holds real credentials; the *.example.yml template is OK.
+group_vars/vault.yml
+**/vault.yml
+!*.example.yml
+
+# --- Docker-compose durable volume mounts (runtime data) ---
 irisa/
 irisb/
 webgatewaya/
@@ -8,6 +16,9 @@ webgatewayb/
 arbiter/
 haproxy/
 
+# --- Captured run artifacts (keep the folder, ignore its output) ---
 evidence/*.log
 evidence/*.json
 evidence/*.txt
+!evidence/README.md
+!evidence/.gitkeep

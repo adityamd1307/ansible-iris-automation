@@ -1,0 +1,41 @@
+---
+# =====================================================================
+# Configure interoperability production auto-start (guarded ObjectScript)
+# =====================================================================
+# Applies the auto-start production setting to EVERY node so a promoted
+# backup is application-ready (interop settings are not mirrored).
+# Skips cleanly when `production` is not defined/enabled for the env or
+# when the namespace is not interop-enabled.
+#
+# Run:  ansible-playbook playbooks/setup_production.yml -i inventories/poc
+- name: Configure interoperability production auto-start
+  hosts: iris_nodes
+  become: false
+  gather_facts: false
+
+  tasks:
+    - name: Skip when production is not enabled for this environment
+      ansible.builtin.debug:
+        msg: "production not defined/enabled for {{ iris_env | default('env') }}; skipping."
+      when: not (production is defined and (production.enabled | default(false)))
+
+    - name: Configure production auto-start
+      when: production is defined and (production.enabled | default(false))
+      block:
+        - name: Stage and push production setup script
+          ansible.builtin.include_tasks: tasks/push_file.yml
+          vars:
+            src_template: "{{ playbook_dir }}/../objectscript/setup_production.cos.j2"
+            staged_name: "setup_production.cos"
+            remote_path: "/tmp/setup_production.cos"
+
+        - name: Run production auto-start setup
+          ansible.builtin.include_tasks: tasks/iris_session.yml
+          vars:
+            remote_path: "/tmp/setup_production.cos"
+            session_label: "production auto-start"
+            session_changed_when: "'SET AUTOSTART' in (session_result.stdout | default('')) or 'CLEARED AUTOSTART' in (session_result.stdout | default(''))"
+
+        - name: Show production setup output
+          ansible.builtin.debug:
+            msg: "{{ session_result.stdout_lines | default([]) }}"

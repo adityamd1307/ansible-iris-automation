@@ -1,0 +1,18 @@
+; =====================================================================
+; Guarded / idempotent security setup
+; =====================================================================
+; Rendered by playbooks/setup_security.yml.
+;  - Creates application roles/resources if missing (idempotent)
+;  - Optionally rotates the admin password (only when rotate_admin_password
+;    is true; the whole task runs with no_log so the value is never logged)
+; Run inside %SYS.
+zn "%SYS"
+write !, "--- SECURITY SETUP ---"
+{% for role in security_roles %}
+if '##class(Security.Roles).Exists("{{ role.name }}") { set sc=##class(Security.Roles).Create("{{ role.name }}","{{ role.description | default('') }}","{{ role.resources | default('') }}") write !,"CREATED ROLE {{ role.name }} sc="_$system.Status.GetErrorText(sc) } else { set sc=##class(Security.Roles).Modify("{{ role.name }}",.props) write !,"EXISTS ROLE {{ role.name }}" }
+{% endfor %}
+{% if rotate_admin_password | default(false) %}
+kill up set up("Password")="{{ vault_iris_admin_password }}" set sc=##class(Security.Users).Modify("{{ admin_user | default('_SYSTEM') }}",.up) write !,"PWROTATE {{ admin_user | default('_SYSTEM') }} sc="_$system.Status.GetErrorText(sc)
+{% endif %}
+write !, "--- END SECURITY SETUP ---"
+halt

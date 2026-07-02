@@ -1,0 +1,44 @@
+---
+# Reusable: apply a CPF merge file to the IRIS instance (idempotent).
+#
+# Required vars:
+#   remote_path : absolute path of the .cpf file on/in the node
+# Optional:
+#   merge_label : human label for output (defaults to remote_path)
+#
+# Registers: merge_result (combined), and sets merge_changed fact.
+
+- name: "CPF merge (docker) - {{ merge_label | default(remote_path) }}"
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - "{{ iris_container | default(inventory_hostname) }}"
+      - iris
+      - merge
+      - "{{ iris_instance | default('IRIS') }}"
+      - "{{ remote_path }}"
+  register: merge_docker
+  changed_when: >-
+    ('Merged 0 ' not in (merge_docker.stdout | default('')))
+    and ('already exists' not in (merge_docker.stdout | default('')))
+  failed_when: merge_docker.rc != 0 or ('ERROR' in (merge_docker.stdout | default('')))
+  when: iris_exec_mode == 'docker'
+
+- name: "CPF merge (direct) - {{ merge_label | default(remote_path) }}"
+  ansible.builtin.command:
+    argv:
+      - iris
+      - merge
+      - "{{ iris_instance | default('IRIS') }}"
+      - "{{ remote_path }}"
+  register: merge_direct
+  changed_when: >-
+    ('Merged 0 ' not in (merge_direct.stdout | default('')))
+    and ('already exists' not in (merge_direct.stdout | default('')))
+  failed_when: merge_direct.rc != 0 or ('ERROR' in (merge_direct.stdout | default('')))
+  when: iris_exec_mode == 'direct'
+
+- name: "Normalize merge result - {{ merge_label | default(remote_path) }}"
+  ansible.builtin.set_fact:
+    merge_result: "{{ merge_docker if iris_exec_mode == 'docker' else merge_direct }}"

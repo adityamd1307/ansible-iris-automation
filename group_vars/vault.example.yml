@@ -1,0 +1,30 @@
+---
+# =====================================================================
+# VAULT EXAMPLE - DO NOT PUT REAL SECRETS IN THIS FILE
+# =====================================================================
+# This file documents the *shape* of the secrets the playbooks expect.
+# It is committed only as a template. Real secrets live in an encrypted
+# file that is NEVER committed in plaintext.
+#
+# To create the real, encrypted vault:
+#
+#   cp group_vars/vault.example.yml group_vars/vault.yml
+#   # edit group_vars/vault.yml with real values, then encrypt it:
+#   ansible-vault encrypt group_vars/vault.yml
+#
+# group_vars/vault.yml is git-ignored (see .gitignore). Load it at run
+# time with --ask-vault-pass or --vault-password-file.
+#
+# All variables here are consumed with `no_log: true` in the playbooks
+# so they are never printed to the console or logs.
+
+# IRIS administrative / automation account password used to change the
+# default password on first configure. Rotate after the POC.
+vault_iris_admin_password: "CHANGE_ME"
+
+# Optional: application service-account password created in setup_security.
+vault_iris_app_password: "CHANGE_ME"
+
+# Optional: path to the IRIS license key on the control node. Prefer
+# passing this at run time with -e iris_key_source=... instead.
+# vault_iris_key_source: "/secure/path/to/iris.key"
