@@ -15,8 +15,12 @@
 zn "%SYS"
 set q=$char(34)
 set memberType="NotMember",isMember=0,journalOn=0
-try { set memberType=$SYSTEM.Mirror.GetMemberType() } catch e { set memberType="NotMember" }
-set:(memberType'="NotMember")&&(memberType'="") isMember=1
+try { set memberType=$SYSTEM.Mirror.GetMemberType() } catch e { set memberType="Not Member" }
+; Normalize: GetMemberType() returns "Not Member" (with a space) when the
+; instance is not in a mirror. Strip spaces/case before the guard so the
+; node is only flagged a member for real member types (Failover/Async/...).
+set nt=$zconvert($translate(memberType," ",""),"L")
+set:(nt'="notmember")&&(nt'="") isMember=1
 try { set journalOn=$select(##class(%SYS.Journal.System).GetCurrentState()'="":1,1:0) } catch e { set journalOn=1 }
 set expectedRole="{{ mirror_role | default('unknown') }}"
 set j="{"
