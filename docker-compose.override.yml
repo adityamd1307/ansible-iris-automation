@@ -1,0 +1,7 @@
+# Local override for community IRIS (no license key required).
+# Auto-merged by docker compose; not required for licensed images with iris.key.
+services:
+  irisa:
+    command: --check-caps false
+  irisb:
+    command: --check-caps false

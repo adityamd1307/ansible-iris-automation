@@ -1,0 +1,18 @@
+; =====================================================================
+; Load and compile SecuritySync classes into %SYS (idempotent)
+; =====================================================================
+; Rendered by playbooks/tasks/install_security_sync.yml.
+; Each Load uses "ck" (check syntax + compile). Safe to re-run.
+zn "%SYS"
+write !, "--- INSTALL SECURITY SYNC ---"
+set sc=$system.OBJ.Load("/tmp/security_sync/SecuritySync.Config.cls","ck") write !,"LOAD Config sc="_$system.Status.GetErrorText(sc)
+set sc=$system.OBJ.Load("/tmp/security_sync/SecuritySync.Util.cls","ck") write !,"LOAD Util sc="_$system.Status.GetErrorText(sc)
+set sc=$system.OBJ.Load("/tmp/security_sync/SecuritySync.Logger.cls","ck") write !,"LOAD Logger sc="_$system.Status.GetErrorText(sc)
+set sc=$system.OBJ.Load("/tmp/security_sync/SecuritySync.Result.cls","ck") write !,"LOAD Result sc="_$system.Status.GetErrorText(sc)
+set sc=$system.OBJ.Load("/tmp/security_sync/SecuritySync.Validator.cls","ck") write !,"LOAD Validator sc="_$system.Status.GetErrorText(sc)
+set sc=$system.OBJ.Load("/tmp/security_sync/SecuritySync.Exporter.cls","ck") write !,"LOAD Exporter sc="_$system.Status.GetErrorText(sc)
+set sc=$system.OBJ.Load("/tmp/security_sync/SecuritySync.Importer.cls","ck") write !,"LOAD Importer sc="_$system.Status.GetErrorText(sc)
+set sc=$system.OBJ.Load("/tmp/security_sync/SecuritySync.Service.cls","ck") write !,"LOAD Service sc="_$system.Status.GetErrorText(sc)
+write !,"COMPILED SecuritySync.Service"
+write !, "--- END INSTALL SECURITY SYNC ---"
+halt

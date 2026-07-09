@@ -1,0 +1,26 @@
+; =====================================================================
+; Thin invoke script for SecuritySync.Service (one statement per line)
+; =====================================================================
+; Rendered by sync_security.yml / validate_security_sync.yml.
+; security_sync_action: export | import | dry_run_import | validate | create_test_delta
+zn "%SYS"
+{% set roles_path = security_sync_roles_path | default('/tmp/iris_security_roles.xml') %}
+{% set users_path = security_sync_users_path | default('/tmp/iris_security_users.xml') %}
+{% set include_sql = 1 if security_sync_include_sql_privileges | default(false) | bool else 0 %}
+{% set req_roles = (security_sync_required_roles | default([])) | join(',') %}
+{% set req_users = (security_sync_required_users | default([])) | join(',') %}
+set cfg=##class(SecuritySync.Config).Default() set cfg.RolesPath="{{ roles_path }}" set cfg.UsersPath="{{ users_path }}" set cfg.IncludeSQLPrivileges={{ include_sql }} set cfg.RequiredRoles="{{ req_roles }}" set cfg.RequiredUsers="{{ req_users }}"
+{% if security_sync_action == 'export' %}
+do ##class(SecuritySync.Service).RunExport(cfg)
+{% elif security_sync_action == 'import' %}
+do ##class(SecuritySync.Service).RunImport(cfg)
+{% elif security_sync_action == 'dry_run_import' %}
+do ##class(SecuritySync.Service).DryRunImport(cfg)
+{% elif security_sync_action == 'validate' %}
+do ##class(SecuritySync.Service).RunValidate(cfg)
+{% elif security_sync_action == 'create_test_delta' %}
+do ##class(SecuritySync.Service).CreateTestDelta()
+{% else %}
+write !,"SECURITY_SYNC_JSON:{""ok"":false,""step"":""invoke"",""errors"":[""Unknown security_sync_action: {{ security_sync_action }}""]}"
+{% endif %}
+halt

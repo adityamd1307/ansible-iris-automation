@@ -77,3 +77,13 @@ mirror_requires_journaling: true
 mirror_databases:
   - TRAININGDATA
   - TRAININGCODE
+
+# --- Security sync (primary → backup) --------------------------------
+security_sync_enabled: true
+security_sync_dry_run: false
+security_sync_roles_path: /tmp/iris_security_roles.xml
+security_sync_users_path: /tmp/iris_security_users.xml
+security_sync_include_sql_privileges: false
+security_sync_required_roles:
+  - TRAINING_APP
+security_sync_required_users: []

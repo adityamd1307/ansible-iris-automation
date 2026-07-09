@@ -1,0 +1,32 @@
+---
+# Reusable: pull a file from the target IRIS node to the control node.
+#
+# Required vars:
+#   remote_path  : absolute source path on/in the node
+#   local_path   : absolute destination path on the control node
+#
+# Relies on: iris_exec_mode, iris_container (docker mode).
+
+- name: "Ensure local destination directory exists ({{ local_path }})"
+  ansible.builtin.file:
+    path: "{{ local_path | dirname }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+
+- name: "Fetch {{ remote_path }} from container ({{ iris_container | default(inventory_hostname) }})"
+  ansible.builtin.command:
+    argv:
+      - docker
+      - cp
+      - "{{ iris_container | default(inventory_hostname) }}:{{ remote_path }}"
+      - "{{ local_path }}"
+  changed_when: false
+  when: iris_exec_mode == 'docker'
+
+- name: "Fetch {{ remote_path }} from host (direct)"
+  ansible.builtin.fetch:
+    src: "{{ remote_path }}"
+    dest: "{{ local_path }}"
+    flat: true
+  when: iris_exec_mode == 'direct'

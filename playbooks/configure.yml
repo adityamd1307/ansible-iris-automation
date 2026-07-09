@@ -19,3 +19,6 @@
 - import_playbook: setup_mirror.yml
 - import_playbook: validate_nodes.yml
 - import_playbook: validate_mirror.yml
+# Optional: sync primary security (roles/users) to backup after mirror is up.
+# Not enabled by default — run explicitly when needed:
+# - import_playbook: sync_security.yml
