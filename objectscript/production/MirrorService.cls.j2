@@ -1,0 +1,14 @@
+Class {{ production.service_class | default(namespace ~ ".MirrorService") }} Extends Ens.BusinessService
+{
+
+Parameter ADAPTER = "Ens.InboundAdapter";
+
+Method OnProcessInput(pInput As %RegisteredObject, Output pOutput As %RegisteredObject) As %Status
+{
+    set req=##class({{ production.message_class | default(namespace ~ ".MirrorMessage") }}).%New()
+    set req.Text="mirror production demo "_$ZDATETIME($HOROLOG,3,1)
+    set req.CreatedAt=$ZDATETIME($HOROLOG,3,1)
+    quit ..SendRequestAsync("{{ production.operation_name | default('MirrorDemoOperation') }}",req)
+}
+
+}

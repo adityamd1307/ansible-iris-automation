@@ -1,0 +1,14 @@
+; =====================================================================
+; Import / compile demo interoperability production classes
+; =====================================================================
+; Runs inside the application namespace. If this IRIS image does not
+; include Interoperability runtime classes (Ens.*), skip cleanly.
+write !, "--- PRODUCTION CLASS IMPORT ---"
+set hasEns=0
+try { zn "{{ namespace }}" set hasEns=##class(%Dictionary.CompiledClass).%ExistsId("Ens.Director") } catch e { set hasEns=0 }
+if 'hasEns { write !,"SKIP production-class-import interop-not-available" write !,"--- END PRODUCTION CLASS IMPORT ---" halt }
+{% for cls in production.classes | default([]) %}
+set sc=$SYSTEM.OBJ.Load("{{ cls.remote }}","ck") write !,"LOAD {{ cls.name }} sc="_$system.Status.GetErrorText(sc)
+{% endfor %}
+write !, "--- END PRODUCTION CLASS IMPORT ---"
+halt

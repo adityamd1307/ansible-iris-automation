@@ -19,6 +19,13 @@
       - "{{ iris_instance | default('IRIS') }}"
       - "{{ remote_path }}"
   register: merge_docker
+  retries: "{{ iris_command_retries | default(20) }}"
+  delay: "{{ iris_command_delay | default(6) }}"
+  until:
+    - merge_docker.rc == 0
+    - "'Startup or Installation in progress' not in (merge_docker.stdout | default(''))"
+    - "'Instance is not running' not in (merge_docker.stdout | default(''))"
+    - "'ERROR' not in (merge_docker.stdout | default(''))"
   changed_when: >-
     ('Merged 0 ' not in (merge_docker.stdout | default('')))
     and ('already exists' not in (merge_docker.stdout | default('')))
@@ -33,6 +40,13 @@
       - "{{ iris_instance | default('IRIS') }}"
       - "{{ remote_path }}"
   register: merge_direct
+  retries: "{{ iris_command_retries | default(20) }}"
+  delay: "{{ iris_command_delay | default(6) }}"
+  until:
+    - merge_direct.rc == 0
+    - "'Startup or Installation in progress' not in (merge_direct.stdout | default(''))"
+    - "'Instance is not running' not in (merge_direct.stdout | default(''))"
+    - "'ERROR' not in (merge_direct.stdout | default(''))"
   changed_when: >-
     ('Merged 0 ' not in (merge_direct.stdout | default('')))
     and ('already exists' not in (merge_direct.stdout | default('')))

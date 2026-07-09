@@ -1,5 +1,5 @@
 ; =====================================================================
-; CPF MERGE TEMPLATE - Namespace + database mapping
+; CPF MERGE TEMPLATE - Interop-enabled namespace + database mapping
 ; =====================================================================
 ; Rendered by Ansible (playbooks/create_namespace.yml) from the
 ; environment desired state in inventories/<env>/group_vars/all.yml.
@@ -9,15 +9,8 @@
 ; it is updated in place; if not, it is created.
 ;
 ; Databases themselves are created by cpf/database-template.cpf.j2
-; (run first). This template wires the namespace to those databases and
-; sets the default global/routine mappings.
+; (run first). This template creates the namespace, wires it to those
+; databases, and enables Interoperability for the namespace.
 
-[Namespaces]
-; %ALL is a system pseudo-namespace and must remain mapped to %SYS.
-%ALL={{ globals_db }}
-{{ namespace }}={{ globals_db }}
-
-[Map.{{ namespace }}]
-; Default global and routine databases for this namespace.
-Global_Default={{ globals_db }}
-Routine_Default={{ routines_db }}
+[Actions]
+CreateNamespace:Name={{ namespace }},Globals={{ globals_db }},Routines={{ routines_db }},Interop={{ 1 if namespace_interop | default(true) else 0 }}

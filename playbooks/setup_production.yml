@@ -22,6 +22,43 @@
     - name: Configure production auto-start
       when: production is defined and (production.enabled | default(false))
       block:
+        - name: Stage and push production class sources
+          ansible.builtin.include_tasks: tasks/push_file.yml
+          loop: "{{ production.classes | default([]) }}"
+          loop_control:
+            loop_var: production_class
+            label: "{{ production_class.name }}"
+          vars:
+            src_template: "{{ playbook_dir }}/../{{ production_class.src }}"
+            staged_name: "{{ production_class.name }}"
+            remote_path: "{{ production_class.remote }}"
+
+        - name: Stage and push production class import script
+          ansible.builtin.include_tasks: tasks/push_file.yml
+          vars:
+            src_template: "{{ playbook_dir }}/../objectscript/import_production_classes.cos.j2"
+            staged_name: "import_production_classes.cos"
+            remote_path: "/tmp/import_production_classes.cos"
+
+        - name: Import and compile production classes
+          ansible.builtin.include_tasks: tasks/iris_session.yml
+          vars:
+            remote_path: "/tmp/import_production_classes.cos"
+            session_label: "production class import"
+            session_changed_when: "'LOAD ' in (session_result.stdout | default('')) and 'SKIP production-class-import' not in (session_result.stdout | default(''))"
+
+        - name: Show production class import output
+          ansible.builtin.debug:
+            msg: "{{ session_result.stdout_lines | default([]) }}"
+
+        - name: Assert production class import succeeded when interop is available
+          ansible.builtin.assert:
+            that:
+              - "'ERROR #' not in (session_result.stdout | default(''))"
+            fail_msg: "Production class import failed; see output above."
+            success_msg: "Production class import completed or skipped cleanly."
+          when: "'SKIP production-class-import' not in (session_result.stdout | default(''))"
+
         - name: Stage and push production setup script
           ansible.builtin.include_tasks: tasks/push_file.yml
           vars:

@@ -13,6 +13,23 @@
   gather_facts: false
 
   tasks:
+    - name: Stage and push primary mirror CPF action file
+      ansible.builtin.include_tasks: tasks/push_file.yml
+      vars:
+        src_template: "{{ playbook_dir }}/../cpf/mirror-template.cpf.j2"
+        staged_name: "mirror-merge.cpf"
+        remote_path: "/tmp/mirror-merge.cpf"
+
+    - name: Apply primary mirror CPF action
+      ansible.builtin.include_tasks: tasks/iris_merge.yml
+      vars:
+        remote_path: "/tmp/mirror-merge.cpf"
+        merge_label: "mirror {{ mirror_name }} primary"
+
+    - name: Show primary mirror CPF output
+      ansible.builtin.debug:
+        msg: "{{ merge_result.stdout_lines | default([]) }}"
+
     - name: Stage and push primary mirror setup script
       ansible.builtin.include_tasks: tasks/push_file.yml
       vars:
@@ -35,6 +52,7 @@
       ansible.builtin.assert:
         that:
           - "'ERROR #' not in (session_result.stdout | default(''))"
+          - "'ROLE DRIFT' not in (session_result.stdout | default(''))"
         fail_msg: "Primary mirror setup failed; see output above."
         success_msg: "Primary mirror setup completed without IRIS errors."
 
@@ -44,6 +62,23 @@
   gather_facts: false
 
   tasks:
+    - name: Stage and push backup mirror CPF action file
+      ansible.builtin.include_tasks: tasks/push_file.yml
+      vars:
+        src_template: "{{ playbook_dir }}/../cpf/mirror-template.cpf.j2"
+        staged_name: "mirror-merge.cpf"
+        remote_path: "/tmp/mirror-merge.cpf"
+
+    - name: Apply backup mirror CPF action
+      ansible.builtin.include_tasks: tasks/iris_merge.yml
+      vars:
+        remote_path: "/tmp/mirror-merge.cpf"
+        merge_label: "mirror {{ mirror_name }} backup"
+
+    - name: Show backup mirror CPF output
+      ansible.builtin.debug:
+        msg: "{{ merge_result.stdout_lines | default([]) }}"
+
     - name: Stage and push backup mirror setup script
       ansible.builtin.include_tasks: tasks/push_file.yml
       vars:

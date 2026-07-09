@@ -1,10 +1,11 @@
 ---
 # =====================================================================
-# Create/ensure the namespace and its default mappings via CPF merge
+# Create/ensure the interop-enabled namespace and mappings via CPF merge
 # =====================================================================
 # Databases must exist first (playbooks/setup_databases.yml). This
-# playbook wires the namespace to its global/routine databases. CPF merge
-# is idempotent, so re-running is safe.
+# playbook uses the CPF [Actions] CreateNamespace form so Interoperability
+# is enabled while the namespace is wired to its global/routine databases.
+# CPF merge is idempotent, so re-running is safe.
 #
 # Parameterized entirely from inventories/<env>/group_vars/all.yml:
 #   namespace, globals_db, routines_db

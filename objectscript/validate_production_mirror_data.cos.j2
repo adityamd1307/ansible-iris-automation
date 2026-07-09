@@ -1,0 +1,25 @@
+; =====================================================================
+; Read-only production mirror data check -> emits single-line JSON
+; =====================================================================
+; The demo Business Operation writes ^MirrorProductionDemo in the app
+; namespace. Because the namespace default globals DB is mirrored, the
+; latest value should be visible on the backup after replication.
+zn "{{ namespace }}"
+set q=$char(34)
+set count=+$get(^MirrorProductionDemo)
+set text=$get(^MirrorProductionDemo(count,"text"))
+set createdAt=$get(^MirrorProductionDemo(count,"createdAt"))
+set processedAt=$get(^MirrorProductionDemo(count,"processedAt"))
+set writerNode=$get(^MirrorProductionDemo(count,"node"))
+set j="{"
+set j=j_q_"node"_q_":"_q_$System.INetInfo.LocalHostName()_q_","
+set j=j_q_"namespace"_q_":"_q_"{{ namespace }}"_q_","
+set j=j_q_"mirror_role"_q_":"_q_"{{ mirror_role | default('unknown') }}"_q_","
+set j=j_q_"count"_q_":"_count_","
+set j=j_q_"latest_text"_q_":"_q_text_q_","
+set j=j_q_"latest_created_at"_q_":"_q_createdAt_q_","
+set j=j_q_"latest_processed_at"_q_":"_q_processedAt_q_","
+set j=j_q_"writer_node"_q_":"_q_writerNode_q
+set j=j_"}"
+write !,"PRODUCTION_MIRROR_JSON:"_j
+halt

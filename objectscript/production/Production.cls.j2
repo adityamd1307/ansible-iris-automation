@@ -1,0 +1,14 @@
+Class {{ production.class }} Extends Ens.Production
+{
+
+XData ProductionDefinition
+{
+<Production Name="{{ production.class }}" LogGeneralTraceEvents="true">
+  <Item Name="{{ production.service_name | default('MirrorDemoService') }}" Category="" ClassName="{{ production.service_class | default(namespace ~ ".MirrorService") }}" PoolSize="1" Enabled="true" Foreground="false" LogTraceEvents="true">
+    <Setting Target="Adapter" Name="CallInterval">5</Setting>
+  </Item>
+  <Item Name="{{ production.operation_name | default('MirrorDemoOperation') }}" Category="" ClassName="{{ production.operation_class | default(namespace ~ ".MirrorOperation") }}" PoolSize="1" Enabled="true" Foreground="false" LogTraceEvents="true"/>
+</Production>
+}
+
+}

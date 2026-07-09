@@ -1,0 +1,21 @@
+; =====================================================================
+; CPF MERGE TEMPLATE - Mirror membership action
+; =====================================================================
+; Rendered by Ansible (playbooks/setup_mirror.yml). The primary and
+; backup nodes receive different ConfigMirror actions based on their
+; inventory mirror_role.
+;
+; Example rendered primary action:
+;   ConfigMirror:Name=MYMIRROR,Member=primary,ArbiterURL=arbiter:2188
+;
+; Example rendered backup action:
+;   ConfigMirror:Name=MYMIRROR,Member=backup,Primary=irisa,ArbiterURL=arbiter:2188
+
+[Actions]
+{% if mirror_role | default('') == 'primary' %}
+ConfigMirror:Name={{ mirror_name }},Member=primary,ArbiterURL={{ mirror_arbiter_url | default(mirror_arbiter_host ~ ':' ~ mirror_arbiter_port) }}
+{% elif mirror_role | default('') == 'backup' %}
+ConfigMirror:Name={{ mirror_name }},Member=backup,Primary={{ mirror_primary_host | default(hostvars[groups['iris_primary'][0]].inventory_hostname) }},ArbiterURL={{ mirror_arbiter_url | default(mirror_arbiter_host ~ ':' ~ mirror_arbiter_port) }}
+{% else %}
+; No ConfigMirror action rendered because mirror_role is not primary or backup.
+{% endif %}

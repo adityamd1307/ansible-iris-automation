@@ -23,13 +23,14 @@ set nsExists=##class(%SYS.Namespace).Exists("{{ namespace }}")
 set glbExists=##class(SYS.Database).%ExistsId("{{ databases[0].directory }}/")
 set rtnExists=##class(SYS.Database).%ExistsId("{{ databases[1].directory }}/")
 set appExists=##class(Security.Applications).Exists("{{ web_apps[0].path }}")
-set prodAutoStart="",prodConfigured=0,prodRunning=0
-try { zn "{{ namespace }}" set prodAutoStart=##class(Ens.Director).GetAutoStartProduction() set prodConfigured=(prodAutoStart'="") do ##class(Ens.Director).GetProductionStatus(.pName,.pState) set prodRunning=(+$get(pState)=1) zn "%SYS" } catch e { set prodRunning=0 }
+set interopAvailable=0,prodAutoStart="",prodConfigured=0,prodRunning=0
+try { zn "{{ namespace }}" set prodAutoStart=##class(Ens.Director).GetAutoStartProduction() set interopAvailable=1 set prodConfigured=(prodAutoStart'="") do ##class(Ens.Director).GetProductionStatus(.pName,.pState) set prodRunning=(+$get(pState)=1) zn "%SYS" } catch e { set prodRunning=0 }
 set j="{"
 set j=j_q_"node"_q_":"_q_$System.INetInfo.LocalHostName()_q_","
 set j=j_q_"namespace"_q_":"_q_"{{ namespace }}"_q_","
 set j=j_q_"mirror_role"_q_":"_q_"{{ mirror_role | default('unknown') }}"_q_","
 set j=j_q_"namespace_exists"_q_":"_$select(nsExists:"true",1:"false")_","
+set j=j_q_"interop_available"_q_":"_$select(interopAvailable:"true",1:"false")_","
 set j=j_q_"globals_db_exists"_q_":"_$select(glbExists:"true",1:"false")_","
 set j=j_q_"routines_db_exists"_q_":"_$select(rtnExists:"true",1:"false")_","
 set j=j_q_"web_app_exists"_q_":"_$select(appExists:"true",1:"false")_","

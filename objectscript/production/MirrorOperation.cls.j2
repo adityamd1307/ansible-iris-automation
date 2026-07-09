@@ -1,0 +1,16 @@
+Class {{ production.operation_class | default(namespace ~ ".MirrorOperation") }} Extends Ens.BusinessOperation
+{
+
+Parameter INVOCATION = "Queue";
+
+Method OnMessage(pRequest As {{ production.message_class | default(namespace ~ ".MirrorMessage") }}, Output pResponse As %RegisteredObject) As %Status
+{
+    set id=$increment(^MirrorProductionDemo)
+    set ^MirrorProductionDemo(id,"text")=pRequest.Text
+    set ^MirrorProductionDemo(id,"createdAt")=pRequest.CreatedAt
+    set ^MirrorProductionDemo(id,"processedAt")=$ZDATETIME($HOROLOG,3,1)
+    set ^MirrorProductionDemo(id,"node")=$System.INetInfo.LocalHostName()
+    quit $System.Status.OK()
+}
+
+}

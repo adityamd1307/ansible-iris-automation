@@ -47,10 +47,11 @@
       ansible.builtin.assert:
         that:
           - readiness.namespace_exists == true
+          - (not (namespace_interop_enforce | default(false) | bool)) or (readiness.interop_available == true)
           - readiness.globals_db_exists == true
           - readiness.routines_db_exists == true
           - readiness.web_app_exists == true
-        fail_msg: "Validation FAILED: required namespace/databases/web app missing on {{ inventory_hostname }}"
+        fail_msg: "Validation FAILED: required namespace/interoperability/databases/web app missing on {{ inventory_hostname }}"
         success_msg: "Validation PASSED: {{ inventory_hostname }} is application-ready."
 
     - name: Assert interoperability production readiness (mirror-role aware)

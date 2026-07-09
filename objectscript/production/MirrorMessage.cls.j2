@@ -1,0 +1,8 @@
+Class {{ production.message_class | default(namespace ~ ".MirrorMessage") }} Extends Ens.Request
+{
+
+Property Text As %String(MAXLEN = 400);
+
+Property CreatedAt As %TimeStamp;
+
+}

@@ -30,6 +30,11 @@ stage_dir: /tmp/iris_automation
 namespace: TRAINING
 globals_db: TRAININGDATA
 routines_db: TRAININGCODE
+namespace_interop: true
+# The POC image accepts CreateNamespace Interop=1, but does not include
+# Ens.* runtime classes. Set true when using an Interoperability-capable
+# image and a real production class.
+namespace_interop_enforce: false
 db_directory_root: /usr/irissys/mgr
 
 # Physical databases to create/ensure. Directories are derived from the
@@ -77,8 +82,26 @@ security_services:
 # may not be interop-enabled; the setup is guarded and skips gracefully.
 production:
   class: TRAINING.Production
+  message_class: TRAINING.MirrorMessage
+  service_class: TRAINING.MirrorService
+  operation_class: TRAINING.MirrorOperation
+  service_name: MirrorDemoService
+  operation_name: MirrorDemoOperation
   auto_start: true
   enabled: true          # run the auto-start automation for this env
+  classes:
+    - name: MirrorMessage.cls
+      src: objectscript/production/MirrorMessage.cls.j2
+      remote: /tmp/MirrorMessage.cls
+    - name: MirrorOperation.cls
+      src: objectscript/production/MirrorOperation.cls.j2
+      remote: /tmp/MirrorOperation.cls
+    - name: MirrorService.cls
+      src: objectscript/production/MirrorService.cls.j2
+      remote: /tmp/MirrorService.cls
+    - name: Production.cls
+      src: objectscript/production/Production.cls.j2
+      remote: /tmp/Production.cls
 # Hard-assert production readiness in validation. Leave false until the
 # namespace is genuinely interop-enabled with a real production class.
 production_enforce: false
@@ -91,6 +114,9 @@ mirror_name: TRAININGMIRROR
 # The arbiter host/port is validated for reachability (mirror readiness).
 mirror_arbiter_host: 127.0.0.1
 mirror_arbiter_port: 21883
+# The CPF ConfigMirror action runs inside the container network.
+mirror_arbiter_url: arbiter:2188
+mirror_primary_host: irisa
 # Journaling must be ON for a node to be mirror-ready.
 mirror_requires_journaling: true
 # Databases expected to be mirrored (validated as present on both nodes).
