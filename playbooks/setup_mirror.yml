@@ -1,0 +1,70 @@
+---
+# =====================================================================
+# Configure IRIS mirror: primary + backup failover members
+# =====================================================================
+# Runs the mirror setup in a deliberate order:
+#   1. primary creates/starts the mirror and adds the backup member
+#   2. backup joins the existing mirror as failover member
+#
+# Run: ansible-playbook playbooks/setup_mirror.yml -i inventories/poc
+- name: Configure mirror primary
+  hosts: iris_primary
+  become: false
+  gather_facts: false
+
+  tasks:
+    - name: Stage and push primary mirror setup script
+      ansible.builtin.include_tasks: tasks/push_file.yml
+      vars:
+        src_template: "{{ playbook_dir }}/../objectscript/setup_mirror_primary.cos.j2"
+        staged_name: "setup_mirror_primary.cos"
+        remote_path: "/tmp/setup_mirror_primary.cos"
+
+    - name: Run primary mirror setup
+      ansible.builtin.include_tasks: tasks/iris_session.yml
+      vars:
+        remote_path: "/tmp/setup_mirror_primary.cos"
+        session_label: "mirror primary"
+        session_changed_when: "'CREATE MIRROR' in (session_result.stdout | default('')) or 'ADD FAILOVER' in (session_result.stdout | default('')) or 'ADD DATABASE' in (session_result.stdout | default(''))"
+
+    - name: Show primary mirror setup output
+      ansible.builtin.debug:
+        msg: "{{ session_result.stdout_lines | default([]) }}"
+
+    - name: Assert primary mirror setup succeeded
+      ansible.builtin.assert:
+        that:
+          - "'ERROR #' not in (session_result.stdout | default(''))"
+        fail_msg: "Primary mirror setup failed; see output above."
+        success_msg: "Primary mirror setup completed without IRIS errors."
+
+- name: Configure mirror backup
+  hosts: iris_backup
+  become: false
+  gather_facts: false
+
+  tasks:
+    - name: Stage and push backup mirror setup script
+      ansible.builtin.include_tasks: tasks/push_file.yml
+      vars:
+        src_template: "{{ playbook_dir }}/../objectscript/setup_mirror_backup.cos.j2"
+        staged_name: "setup_mirror_backup.cos"
+        remote_path: "/tmp/setup_mirror_backup.cos"
+
+    - name: Run backup mirror setup
+      ansible.builtin.include_tasks: tasks/iris_session.yml
+      vars:
+        remote_path: "/tmp/setup_mirror_backup.cos"
+        session_label: "mirror backup"
+        session_changed_when: "'JOIN MIRROR' in (session_result.stdout | default(''))"
+
+    - name: Show backup mirror setup output
+      ansible.builtin.debug:
+        msg: "{{ session_result.stdout_lines | default([]) }}"
+
+    - name: Assert backup mirror setup succeeded
+      ansible.builtin.assert:
+        that:
+          - "'ERROR #' not in (session_result.stdout | default(''))"
+        fail_msg: "Backup mirror setup failed; see output above."
+        success_msg: "Backup mirror setup completed without IRIS errors."

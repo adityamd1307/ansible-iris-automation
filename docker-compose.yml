@@ -79,6 +79,8 @@ services:
 
     volumes:
       - ./webgatewaya:/webgateway-shared
+      - ./config/webgatewaya/CSP.ini:/webgateway-shared/CSP.ini:ro
+      - ./config/webgatewaya/CSP.conf:/webgateway-shared/CSP.conf:ro
 
     depends_on:
       - irisa
@@ -107,6 +109,8 @@ services:
 
     volumes:
       - ./webgatewayb:/webgateway-shared
+      - ./config/webgatewayb/CSP.ini:/webgateway-shared/CSP.ini:ro
+      - ./config/webgatewayb/CSP.conf:/webgateway-shared/CSP.conf:ro
 
     depends_on:
       - irisb

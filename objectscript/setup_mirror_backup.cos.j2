@@ -1,0 +1,20 @@
+; =====================================================================
+; Guarded mirror backup setup
+; =====================================================================
+; Joins this node to the configured mirror as a failover backup. Intended
+; to run on iris_backup after the primary mirror set exists.
+zn "%SYS"
+write !, "--- MIRROR BACKUP SETUP ---"
+set mirror="{{ mirror_name }}"
+set member=$SYSTEM.Mirror.GetMemberType()
+if member="Not Member" { set sc=##class(SYS.Mirror).JoinMirrorAsFailoverMember(mirror,"{{ inventory_hostname }}","{{ iris_instance | default('IRIS') }}","{{ hostvars[groups['iris_primary'][0]].inventory_hostname }}",2188,.localInfo,.sslInfo) write !,"JOIN MIRROR "_mirror_" sc="_$system.Status.GetErrorText(sc) } else { write !,"EXISTS MIRROR MEMBER type="_member }
+if '##class(SYS.Mirror).IsMirrorStarted(mirror) { set sc=##class(SYS.Mirror).StartMirror(mirror) write !,"START MIRROR "_mirror_" sc="_$system.Status.GetErrorText(sc) } else { write !,"EXISTS MIRROR STARTED "_mirror }
+set sc=##class(SYS.Mirror).GetPrimaryJournalPosition(mirror,.pos) set jcnt=+$piece(pos,"^",1),joff=+$piece(pos,"^",2) write !,"PRIMARY JOURNAL POSITION "_pos_" sc="_$system.Status.GetErrorText(sc)
+{% for db in mirror_databases | default([]) %}
+{% set db_item = (databases | selectattr('name','equalto',db) | list | first) %}
+{% if db_item is defined %}
+set sc=##class(SYS.Mirror).AddDatabaseNonPrimary("{{ db_item.directory }}/",mirror,"{{ db }}",jcnt,joff,"",1,1) set err=$system.Status.GetErrorText(sc) write !,$select(err["ERROR #2063":"EXISTS DATABASE {{ db }}",err["already being mirrored":"EXISTS DATABASE {{ db }}",err["successfully added to mirror but CatchupDB() failed":"ADDED DATABASE {{ db }} catchup-pending",1:"ADD NONPRIMARY DATABASE {{ db }} sc="_err)
+{% endif %}
+{% endfor %}
+write !, "--- END MIRROR BACKUP SETUP ---"
+halt

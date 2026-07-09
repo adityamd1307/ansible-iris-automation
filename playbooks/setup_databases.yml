@@ -17,9 +17,28 @@
         argv:
           - docker
           - exec
+          - --user
+          - root
           - "{{ iris_container | default(inventory_hostname) }}"
           - mkdir
           - -p
+          - "{{ item.directory }}"
+      loop: "{{ databases }}"
+      loop_control:
+        label: "{{ item.name }} -> {{ item.directory }}"
+      changed_when: false
+      when: iris_exec_mode == 'docker'
+
+    - name: Set database directory ownership inside container (docker)
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - --user
+          - root
+          - "{{ iris_container | default(inventory_hostname) }}"
+          - chown
+          - irisowner:irisowner
           - "{{ item.directory }}"
       loop: "{{ databases }}"
       loop_control:

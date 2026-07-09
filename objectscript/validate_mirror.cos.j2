@@ -14,13 +14,15 @@
 ; extract it without fragile multi-line regex.
 zn "%SYS"
 set q=$char(34)
-set memberType="NotMember",isMember=0,journalOn=0
+set memberType="NotMember",isMember=0,isPrimary=0,isBackup=0,journalOn=0
 try { set memberType=$SYSTEM.Mirror.GetMemberType() } catch e { set memberType="Not Member" }
 ; Normalize: GetMemberType() returns "Not Member" (with a space) when the
 ; instance is not in a mirror. Strip spaces/case before the guard so the
 ; node is only flagged a member for real member types (Failover/Async/...).
 set nt=$zconvert($translate(memberType," ",""),"L")
 set:(nt'="notmember")&&(nt'="") isMember=1
+try { set isPrimary=$SYSTEM.Mirror.IsPrimary() } catch e { set isPrimary=0 }
+try { set isBackup=$SYSTEM.Mirror.IsBackup() } catch e { set isBackup=0 }
 try { set journalOn=$select(##class(%SYS.Journal.System).GetCurrentState()'="":1,1:0) } catch e { set journalOn=1 }
 set expectedRole="{{ mirror_role | default('unknown') }}"
 set j="{"
@@ -28,6 +30,8 @@ set j=j_q_"node"_q_":"_q_$System.INetInfo.LocalHostName()_q_","
 set j=j_q_"expected_role"_q_":"_q_expectedRole_q_","
 set j=j_q_"member_type"_q_":"_q_memberType_q_","
 set j=j_q_"is_mirror_member"_q_":"_$select(isMember:"true",1:"false")_","
+set j=j_q_"is_primary"_q_":"_$select(isPrimary:"true",1:"false")_","
+set j=j_q_"is_backup"_q_":"_$select(isBackup:"true",1:"false")_","
 set j=j_q_"journaling_enabled"_q_":"_$select(journalOn:"true",1:"false")_","
 set j=j_q_"instance_reachable"_q_":true"
 set j=j_"}"

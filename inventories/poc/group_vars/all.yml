@@ -87,7 +87,7 @@ production_enforce: false
 # Mirror readiness expectations
 # ---------------------------------------------------------------------
 mirror_enabled: true
-mirror_name: TRAINING_MIRROR
+mirror_name: TRAININGMIRROR
 # The arbiter host/port is validated for reachability (mirror readiness).
 mirror_arbiter_host: 127.0.0.1
 mirror_arbiter_port: 21883

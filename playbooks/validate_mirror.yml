@@ -59,6 +59,9 @@
         that:
           - mirror.instance_reachable == true
           - not (mirror_requires_journaling | bool) or (mirror.journaling_enabled == true)
+          - not (mirror_enabled | bool) or (mirror.is_mirror_member == true)
+          - (mirror.expected_role != 'primary') or (mirror.is_primary == true)
+          - (mirror.expected_role != 'backup') or (mirror.is_backup == true)
         fail_msg: "Mirror readiness FAILED on {{ inventory_hostname }} (see JSON above)."
         success_msg: "Mirror readiness OK on {{ inventory_hostname }} (role: {{ mirror_role | default('n/a') }})."
 

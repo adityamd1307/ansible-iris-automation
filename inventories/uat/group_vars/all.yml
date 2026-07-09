@@ -43,7 +43,7 @@ production:
 production_enforce: false
 
 mirror_enabled: true
-mirror_name: APPUAT_MIRROR
+mirror_name: APPUATMIRROR
 mirror_arbiter_host: 10.0.30.13
 mirror_arbiter_port: 2188
 mirror_requires_journaling: true

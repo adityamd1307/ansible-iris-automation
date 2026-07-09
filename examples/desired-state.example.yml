@@ -70,7 +70,7 @@ mirror:
     - TRAININGCODE
 
 mirror_enabled: true
-mirror_name: TRAINING_MIRROR
+mirror_name: TRAININGMIRROR
 mirror_arbiter_host: 127.0.0.1
 mirror_arbiter_port: 21883
 mirror_requires_journaling: true
