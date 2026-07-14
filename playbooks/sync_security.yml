@@ -48,8 +48,8 @@
       block:
         - name: Stage and push create_test_delta invoke script
           ansible.builtin.include_role:
-        name: iris_common
-        tasks_from: push_file
+            name: iris_common
+            tasks_from: push_file
           vars:
             src_template: "{{ playbook_dir }}/../objectscript/invoke_security_sync.cos.j2"
             staged_name: "{{ security_sync_invoke_staged }}"
@@ -58,8 +58,8 @@
 
         - name: Run create_test_delta on primary
           ansible.builtin.include_role:
-          name: iris_common
-          tasks_from: iris_session
+            name: iris_common
+            tasks_from: iris_session
           vars:
             remote_path: "{{ security_sync_invoke_remote }}"
             session_label: "security sync create test delta"
@@ -78,8 +78,8 @@
 
     - name: Run security export on primary
       ansible.builtin.include_role:
-          name: iris_common
-          tasks_from: iris_session
+        name: iris_common
+        tasks_from: iris_session
       vars:
         remote_path: "{{ security_sync_invoke_remote }}"
         session_label: "security sync export"
@@ -196,8 +196,8 @@
       block:
         - name: Stage and push dry_run_import invoke script
           ansible.builtin.include_role:
-        name: iris_common
-        tasks_from: push_file
+            name: iris_common
+            tasks_from: push_file
           vars:
             src_template: "{{ playbook_dir }}/../objectscript/invoke_security_sync.cos.j2"
             staged_name: "{{ security_sync_invoke_staged }}"
@@ -206,8 +206,8 @@
 
         - name: Run dry-run import on backup
           ansible.builtin.include_role:
-          name: iris_common
-          tasks_from: iris_session
+            name: iris_common
+            tasks_from: iris_session
           vars:
             remote_path: "{{ security_sync_invoke_remote }}"
             session_label: "security sync dry-run import"
@@ -241,8 +241,8 @@
       block:
         - name: Stage and push import invoke script
           ansible.builtin.include_role:
-        name: iris_common
-        tasks_from: push_file
+            name: iris_common
+            tasks_from: push_file
           vars:
             src_template: "{{ playbook_dir }}/../objectscript/invoke_security_sync.cos.j2"
             staged_name: "{{ security_sync_invoke_staged }}"
@@ -251,8 +251,8 @@
 
         - name: Run import on backup
           ansible.builtin.include_role:
-          name: iris_common
-          tasks_from: iris_session
+            name: iris_common
+            tasks_from: iris_session
           vars:
             remote_path: "{{ security_sync_invoke_remote }}"
             session_label: "security sync import"
