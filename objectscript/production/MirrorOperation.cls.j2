@@ -3,7 +3,7 @@ Class {{ production.operation_class | default(namespace ~ ".MirrorOperation") }}
 
 Parameter INVOCATION = "Queue";
 
-Method OnMessage(pRequest As {{ production.message_class | default(namespace ~ ".MirrorMessage") }}, Output pResponse As %RegisteredObject) As %Status
+Method OnMessage(pRequest As {{ production.message_class | default(namespace ~ ".MirrorMessage") }}, Output pResponse As Ens.Response) As %Status
 {
     set id=$increment(^MirrorProductionDemo)
     set ^MirrorProductionDemo(id,"text")=pRequest.Text

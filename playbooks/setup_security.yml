@@ -1,20 +1,4 @@
 ---
-# =====================================================================
-# Security setup: services + roles/password (guarded ObjectScript)
-# =====================================================================
-# - Service enablement, application roles/resources, and the optional
-#   password rotation are all applied via guarded ObjectScript.
-# - Service enablement is NOT done via CPF merge: a configuration merge
-#   has no services section in this IRIS version ([%Service_*]/[Services]
-#   is rejected with ERROR #415), so Security.Services is the correct,
-#   guarded mechanism. See docs/mechanism-mapping.md.
-# - Admin password rotation is OPT-IN (rotate_admin_password=true) and
-#   reads the value from an ansible-vault file. The password task runs
-#   with no_log so it is never written to logs/console.
-#
-# Rotate the admin password:
-#   ansible-playbook playbooks/setup_security.yml -i inventories/poc \
-#     -e rotate_admin_password=true --ask-vault-pass
 - name: Configure IRIS security
   hosts: iris_nodes
   become: false
@@ -23,57 +7,5 @@
     rotate_admin_password: false
     admin_user: _SYSTEM
 
-  tasks:
-    - name: Load encrypted secrets (only when rotating the admin password)
-      ansible.builtin.include_vars: "../group_vars/vault.yml"
-      when: rotate_admin_password | bool
-      no_log: true
-
-    - name: Stage and push security setup script
-      ansible.builtin.include_tasks: tasks/push_file.yml
-      vars:
-        src_template: "{{ playbook_dir }}/../objectscript/setup_security.cos.j2"
-        staged_name: "setup_security.cos"
-        remote_path: "/tmp/setup_security.cos"
-
-    - name: Run security setup (roles + optional password rotation)
-      ansible.builtin.include_tasks: tasks/iris_session.yml
-      vars:
-        remote_path: "/tmp/setup_security.cos"
-        session_label: "security"
-        session_no_log: "{{ rotate_admin_password | bool }}"
-        session_changed_when: "'CREATED' in (session_result.stdout | default('')) or 'CHANGED' in (session_result.stdout | default('')) or 'PWROTATE' in (session_result.stdout | default(''))"
-
-    # `docker cp` (in tasks/push_file.yml) places the file as root, so it
-    # must be removed as root; the default container user cannot delete a
-    # root-owned file from sticky /tmp.
-    - name: Remove security script from node (avoid leaving templated secrets)
-      ansible.builtin.command:
-        argv:
-          - docker
-          - exec
-          - -u
-          - root
-          - "{{ iris_container | default(inventory_hostname) }}"
-          - rm
-          - -f
-          - /tmp/setup_security.cos
-      changed_when: false
-      when: iris_exec_mode == 'docker'
-
-    - name: Remove security script from host (direct)
-      ansible.builtin.file:
-        path: /tmp/setup_security.cos
-        state: absent
-      when: iris_exec_mode == 'direct'
-
-    - name: Remove staged security script from control node
-      ansible.builtin.file:
-        path: "{{ stage_dir }}/{{ inventory_hostname }}-setup_security.cos"
-        state: absent
-      delegate_to: localhost
-
-    - name: Show security setup output (suppressed when rotating password)
-      ansible.builtin.debug:
-        msg: "{{ session_result.stdout_lines | default(['(output suppressed: no_log)']) }}"
-      when: not (rotate_admin_password | bool)
+  roles:
+    - iris_security

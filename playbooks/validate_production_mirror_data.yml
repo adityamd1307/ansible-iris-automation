@@ -1,45 +1,8 @@
 ---
-# =====================================================================
-# Validate demo production mirror data (read-only)
-# =====================================================================
-# Reads ^MirrorProductionDemo from the application namespace on every
-# node. The demo Business Operation writes this global; because the
-# namespace globals DB is mirrored, the backup should see the same data.
-#
-# Run: ansible-playbook playbooks/validate_production_mirror_data.yml -i inventories/poc
 - name: Validate production mirror data
   hosts: iris_nodes
   become: false
   gather_facts: false
 
-  tasks:
-    - name: Stage and push production mirror data validation script
-      ansible.builtin.include_tasks: tasks/push_file.yml
-      vars:
-        src_template: "{{ playbook_dir }}/../objectscript/validate_production_mirror_data.cos.j2"
-        staged_name: "validate_production_mirror_data.cos"
-        remote_path: "/tmp/validate_production_mirror_data.cos"
-
-    - name: Run production mirror data validation
-      ansible.builtin.include_tasks: tasks/iris_session.yml
-      vars:
-        remote_path: "/tmp/validate_production_mirror_data.cos"
-        session_label: "production mirror data"
-
-    - name: Extract and parse production mirror data result
-      ansible.builtin.set_fact:
-        production_mirror_data: >-
-          {{ (session_result.stdout_lines
-              | select('match', '^PRODUCTION_MIRROR_JSON:')
-              | list | last | regex_replace('^PRODUCTION_MIRROR_JSON:', '')) | from_json }}
-
-    - name: Show production mirror data result
-      ansible.builtin.debug:
-        msg: "{{ production_mirror_data }}"
-
-    - name: Assert production mirror data exists
-      ansible.builtin.assert:
-        that:
-          - production_mirror_data.count | int > 0
-        fail_msg: "No ^MirrorProductionDemo data found on {{ inventory_hostname }}."
-        success_msg: "Production mirror data is visible on {{ inventory_hostname }}."
+  roles:
+    - iris_validate_production_mirror_data

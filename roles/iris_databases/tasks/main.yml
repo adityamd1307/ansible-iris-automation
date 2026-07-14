@@ -1,0 +1,87 @@
+---
+- name: Create database directories inside container (docker)
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - --user
+      - root
+      - "{{ iris_container | default(inventory_hostname) }}"
+      - mkdir
+      - -p
+      - "{{ item.directory }}"
+  loop: "{{ databases }}"
+  loop_control:
+    label: "{{ item.name }} -> {{ item.directory }}"
+  changed_when: false
+  when: iris_exec_mode == 'docker'
+
+- name: Set database directory ownership inside container (docker)
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - --user
+      - root
+      - "{{ iris_container | default(inventory_hostname) }}"
+      - chown
+      - irisowner:irisowner
+      - "{{ item.directory }}"
+  loop: "{{ databases }}"
+  loop_control:
+    label: "{{ item.name }} -> {{ item.directory }}"
+  changed_when: false
+  when: iris_exec_mode == 'docker'
+
+- name: Create database directories on host (direct)
+  ansible.builtin.file:
+    path: "{{ item.directory }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ databases }}"
+  loop_control:
+    label: "{{ item.name }} -> {{ item.directory }}"
+  when: iris_exec_mode == 'direct'
+
+- name: Stage and push database CPF merge file
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: push_file
+  vars:
+    src_template: "{{ playbook_dir }}/../cpf/database-template.cpf.j2"
+    staged_name: "database-merge.cpf"
+    remote_path: "/tmp/database-merge.cpf"
+
+- name: Apply database CPF merge
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: iris_merge
+  vars:
+    remote_path: "/tmp/database-merge.cpf"
+    merge_label: "databases"
+
+- name: Show database merge output
+  ansible.builtin.debug:
+    msg: "{{ merge_result.stdout_lines | default([]) }}"
+
+- name: Stage and push physical database creation script
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: push_file
+  vars:
+    src_template: "{{ playbook_dir }}/../objectscript/create_databases.cos.j2"
+    staged_name: "create_databases.cos"
+    remote_path: "/tmp/create_databases.cos"
+
+- name: Ensure physical databases exist (guarded ObjectScript)
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: iris_session
+  vars:
+    remote_path: "/tmp/create_databases.cos"
+    session_label: "create databases"
+    session_changed_when: "'CREATED' in (session_result.stdout | default(''))"
+
+- name: Show physical database creation output
+  ansible.builtin.debug:
+    msg: "{{ session_result.stdout_lines | default([]) }}"

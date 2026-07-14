@@ -1,0 +1,51 @@
+---
+- name: Stage and push primary mirror CPF action file
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: push_file
+  vars:
+    src_template: "{{ playbook_dir }}/../cpf/mirror-template.cpf.j2"
+    staged_name: "mirror-merge.cpf"
+    remote_path: "/tmp/mirror-merge.cpf"
+
+- name: Apply primary mirror CPF action
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: iris_merge
+  vars:
+    remote_path: "/tmp/mirror-merge.cpf"
+    merge_label: "mirror {{ mirror_name }} primary"
+
+- name: Show primary mirror CPF output
+  ansible.builtin.debug:
+    msg: "{{ merge_result.stdout_lines | default([]) }}"
+
+- name: Stage and push primary mirror setup script
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: push_file
+  vars:
+    src_template: "{{ playbook_dir }}/../objectscript/setup_mirror_primary.cos.j2"
+    staged_name: "setup_mirror_primary.cos"
+    remote_path: "/tmp/setup_mirror_primary.cos"
+
+- name: Run primary mirror setup
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: iris_session
+  vars:
+    remote_path: "/tmp/setup_mirror_primary.cos"
+    session_label: "mirror primary"
+    session_changed_when: "'CREATE MIRROR' in (session_result.stdout | default('')) or 'ADD FAILOVER' in (session_result.stdout | default('')) or 'ADD DATABASE' in (session_result.stdout | default(''))"
+
+- name: Show primary mirror setup output
+  ansible.builtin.debug:
+    msg: "{{ session_result.stdout_lines | default([]) }}"
+
+- name: Assert primary mirror setup succeeded
+  ansible.builtin.assert:
+    that:
+      - "'ERROR #' not in (session_result.stdout | default(''))"
+      - "'ROLE DRIFT' not in (session_result.stdout | default(''))"
+    fail_msg: "Primary mirror setup failed; see output above."
+    success_msg: "Primary mirror setup completed without IRIS errors."

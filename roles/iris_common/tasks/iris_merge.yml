@@ -1,13 +1,4 @@
 ---
-# Reusable: apply a CPF merge file to the IRIS instance (idempotent).
-#
-# Required vars:
-#   remote_path : absolute path of the .cpf file on/in the node
-# Optional:
-#   merge_label : human label for output (defaults to remote_path)
-#
-# Registers: merge_result (combined), and sets merge_changed fact.
-
 - name: "CPF merge (docker) - {{ merge_label | default(remote_path) }}"
   ansible.builtin.command:
     argv:

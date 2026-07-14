@@ -154,11 +154,13 @@ iris_backup:
 Those groups are what `setup_mirror.yml` uses to run primary work only on
 `irisa` and backup work only on `irisb`.
 
-## 3. Helper Task Files
+## 3. Shared Helper Role
 
-Several playbooks reuse the same helper task files.
+Reusable task helpers live in the `iris_common` role. Feature roles call
+these helpers with `include_role`, while the top-level playbooks stay as
+thin entry points.
 
-### `playbooks/tasks/push_file.yml`
+### `roles/iris_common/tasks/push_file.yml`
 
 Purpose:
 
@@ -170,7 +172,9 @@ Typical use:
 
 ```yaml
 - name: Stage and push namespace CPF merge file
-  ansible.builtin.include_tasks: tasks/push_file.yml
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: push_file
   vars:
     src_template: "{{ playbook_dir }}/../cpf/namespace-template.cpf.j2"
     staged_name: "namespace-merge.cpf"
@@ -183,7 +187,7 @@ Meaning:
 - `staged_name` is the temporary rendered filename.
 - `remote_path` is where the file lands inside the container.
 
-### `playbooks/tasks/iris_merge.yml`
+### `roles/iris_common/tasks/iris_merge.yml`
 
 Purpose:
 
@@ -198,7 +202,7 @@ CPF merge is used for declarative configuration such as:
 - database definitions
 - namespace mappings
 
-### `playbooks/tasks/iris_session.yml`
+### `roles/iris_common/tasks/iris_session.yml`
 
 Purpose:
 
@@ -875,5 +879,4 @@ were active mirrored copies may not replay onto the backup.
 | Mirror setup | `playbooks/setup_mirror.yml`, `objectscript/setup_mirror_primary.cos.j2`, `objectscript/setup_mirror_backup.cos.j2` |
 | Node validation | `playbooks/validate_nodes.yml`, `objectscript/validate_readiness.cos.j2` |
 | Mirror validation | `playbooks/validate_mirror.yml`, `objectscript/validate_mirror.cos.j2` |
-| Shared helpers | `playbooks/tasks/push_file.yml`, `playbooks/tasks/iris_merge.yml`, `playbooks/tasks/iris_session.yml` |
-
+| Shared helpers | `roles/iris_common/tasks/push_file.yml`, `roles/iris_common/tasks/iris_merge.yml`, `roles/iris_common/tasks/iris_session.yml` |

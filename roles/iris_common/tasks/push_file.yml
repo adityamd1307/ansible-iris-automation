@@ -1,14 +1,4 @@
 ---
-# Reusable: render a Jinja template on the control node and place it on
-# the target IRIS node (docker container or SSH host).
-#
-# Required vars:
-#   src_template : path to the .j2 template (relative to this repo)
-#   staged_name  : filename to use while staging on the control node
-#   remote_path  : absolute destination path on/in the node
-#
-# Relies on: stage_dir, iris_exec_mode, iris_container (docker mode).
-
 - name: "Ensure control-node stage dir exists ({{ staged_name }})"
   ansible.builtin.file:
     path: "{{ stage_dir }}"

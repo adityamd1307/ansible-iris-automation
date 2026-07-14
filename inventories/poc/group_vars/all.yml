@@ -46,6 +46,9 @@ databases:
   - name: "{{ routines_db }}"
     directory: "{{ db_directory_root }}/{{ routines_db | lower }}"
     size_mb: 10
+  - name: "{{ globals_db }}ENSTEMP"
+    directory: "{{ db_directory_root }}/{{ globals_db | lower }}/{{ globals_db | lower }}enstemp"
+    size_mb: 10
 
 # ---------------------------------------------------------------------
 # Web applications (created via guarded ObjectScript)

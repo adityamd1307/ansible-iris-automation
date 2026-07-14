@@ -1,12 +1,4 @@
 ---
-# =====================================================================
-# Validate node readiness (read-only) -> asserts desired state present
-# =====================================================================
-# Runs a read-only ObjectScript check on every node and asserts that the
-# namespace, databases and web application exist. Emits machine-readable
-# JSON and (optionally) writes it to evidence/ for the demo.
-#
-# Run:  ansible-playbook playbooks/validate_nodes.yml -i inventories/poc
 - name: Validate IRIS node readiness
   hosts: iris_nodes
   become: false
@@ -14,67 +6,5 @@
   vars:
     write_evidence: false
 
-  tasks:
-    - name: Stage and push readiness validation script
-      ansible.builtin.include_tasks: tasks/push_file.yml
-      vars:
-        src_template: "{{ playbook_dir }}/../objectscript/validate_readiness.cos.j2"
-        staged_name: "validate_readiness.cos"
-        remote_path: "/tmp/validate_readiness.cos"
-
-    - name: Run readiness validation (read-only)
-      ansible.builtin.include_tasks: tasks/iris_session.yml
-      vars:
-        remote_path: "/tmp/validate_readiness.cos"
-        session_label: "node readiness"
-
-    # Extract the single "READINESS_JSON:{...}" line and parse it to a dict
-    # in one step. Parsing here (rather than storing the raw string and
-    # calling from_json later) avoids Ansible implicitly turning the
-    # JSON-looking string back into a dict, which broke a second from_json.
-    - name: Extract and parse machine-readable readiness result
-      ansible.builtin.set_fact:
-        readiness: >-
-          {{ (session_result.stdout_lines
-              | select('match', '^READINESS_JSON:')
-              | list | last | regex_replace('^READINESS_JSON:', '')) | from_json }}
-
-    - name: Show machine-readable readiness result
-      ansible.builtin.debug:
-        msg: "{{ readiness }}"
-
-    - name: Assert node is application-ready (namespace/db/web app/security)
-      ansible.builtin.assert:
-        that:
-          - readiness.namespace_exists == true
-          - (not (namespace_interop_enforce | default(false) | bool)) or (readiness.interop_available == true)
-          - readiness.globals_db_exists == true
-          - readiness.routines_db_exists == true
-          - readiness.web_app_exists == true
-        fail_msg: "Validation FAILED: required namespace/interoperability/databases/web app missing on {{ inventory_hostname }}"
-        success_msg: "Validation PASSED: {{ inventory_hostname }} is application-ready."
-
-    - name: Assert interoperability production readiness (mirror-role aware)
-      ansible.builtin.assert:
-        that:
-          # Auto-start must be CONFIGURED on every node (failover readiness),
-          # but the production only needs to be RUNNING on the current primary
-          # (a backup's mirrored databases are read-only).
-          - readiness.production_configured == true
-          - (mirror_role | default('') != 'primary') or (readiness.production_running == true)
-        fail_msg: >-
-          Production readiness FAILED on {{ inventory_hostname }}
-          (role={{ mirror_role | default('unknown') }}). See JSON above.
-        success_msg: "Production readiness OK on {{ inventory_hostname }} (role: {{ mirror_role | default('unknown') }})."
-      when:
-        - production is defined
-        - production.enabled | default(false)
-        - production_enforce | default(false)
-
-    - name: Write readiness evidence (optional)
-      ansible.builtin.copy:
-        dest: "{{ playbook_dir }}/../evidence/readiness-{{ iris_env }}-{{ inventory_hostname }}.json"
-        content: "{{ readiness | to_nice_json }}\n"
-        mode: "0644"
-      delegate_to: localhost
-      when: write_evidence | bool
+  roles:
+    - iris_validate_nodes

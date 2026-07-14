@@ -1,0 +1,22 @@
+---
+- name: Stage and push web application setup script
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: push_file
+  vars:
+    src_template: "{{ playbook_dir }}/../objectscript/setup_webapp.cos.j2"
+    staged_name: "setup_webapp.cos"
+    remote_path: "/tmp/setup_webapp.cos"
+
+- name: Run web application setup
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: iris_session
+  vars:
+    remote_path: "/tmp/setup_webapp.cos"
+    session_label: "web apps"
+    session_changed_when: "'CREATED' in (session_result.stdout | default(''))"
+
+- name: Show web application setup output
+  ansible.builtin.debug:
+    msg: "{{ session_result.stdout_lines | default([]) }}"

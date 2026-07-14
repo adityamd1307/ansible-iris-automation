@@ -1,15 +1,4 @@
 ---
-# Reusable: run an ObjectScript file through `iris session` via stdin.
-#
-# Required vars:
-#   remote_path : absolute path of the .cos script on/in the node
-# Optional:
-#   session_label : human label for output
-#   session_no_log : true to suppress output (e.g. security/password ops)
-#   session_changed_when : override changed_when expression (default false)
-#
-# Registers: session_result (combined).
-
 - name: "iris session (docker) - {{ session_label | default(remote_path) }}"
   ansible.builtin.shell: >-
     docker exec -i {{ iris_container | default(inventory_hostname) }}
@@ -21,7 +10,7 @@
     - session_docker.rc == 0
     - "'Startup or Installation in progress' not in (session_docker.stdout | default(''))"
     - "'Instance is not running' not in (session_docker.stdout | default(''))"
-  changed_when: "{{ session_changed_when | default(false) }}"
+  changed_when: false
   no_log: "{{ session_no_log | default(false) }}"
   when: iris_exec_mode == 'docker'
 
@@ -35,7 +24,7 @@
     - session_direct.rc == 0
     - "'Startup or Installation in progress' not in (session_direct.stdout | default(''))"
     - "'Instance is not running' not in (session_direct.stdout | default(''))"
-  changed_when: "{{ session_changed_when | default(false) }}"
+  changed_when: false
   no_log: "{{ session_no_log | default(false) }}"
   when: iris_exec_mode == 'direct'
 

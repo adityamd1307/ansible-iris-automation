@@ -1,0 +1,50 @@
+---
+- name: Stage and push backup mirror CPF action file
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: push_file
+  vars:
+    src_template: "{{ playbook_dir }}/../cpf/mirror-template.cpf.j2"
+    staged_name: "mirror-merge.cpf"
+    remote_path: "/tmp/mirror-merge.cpf"
+
+- name: Apply backup mirror CPF action
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: iris_merge
+  vars:
+    remote_path: "/tmp/mirror-merge.cpf"
+    merge_label: "mirror {{ mirror_name }} backup"
+
+- name: Show backup mirror CPF output
+  ansible.builtin.debug:
+    msg: "{{ merge_result.stdout_lines | default([]) }}"
+
+- name: Stage and push backup mirror setup script
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: push_file
+  vars:
+    src_template: "{{ playbook_dir }}/../objectscript/setup_mirror_backup.cos.j2"
+    staged_name: "setup_mirror_backup.cos"
+    remote_path: "/tmp/setup_mirror_backup.cos"
+
+- name: Run backup mirror setup
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: iris_session
+  vars:
+    remote_path: "/tmp/setup_mirror_backup.cos"
+    session_label: "mirror backup"
+    session_changed_when: "'JOIN MIRROR' in (session_result.stdout | default(''))"
+
+- name: Show backup mirror setup output
+  ansible.builtin.debug:
+    msg: "{{ session_result.stdout_lines | default([]) }}"
+
+- name: Assert backup mirror setup succeeded
+  ansible.builtin.assert:
+    that:
+      - "'ERROR #' not in (session_result.stdout | default(''))"
+    fail_msg: "Backup mirror setup failed; see output above."
+    success_msg: "Backup mirror setup completed without IRIS errors."

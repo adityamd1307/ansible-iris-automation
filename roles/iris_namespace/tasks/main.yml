@@ -1,0 +1,21 @@
+---
+- name: Stage and push namespace CPF merge file
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: push_file
+  vars:
+    src_template: "{{ playbook_dir }}/../cpf/namespace-template.cpf.j2"
+    staged_name: "namespace-merge.cpf"
+    remote_path: "/tmp/namespace-merge.cpf"
+
+- name: Apply namespace CPF merge
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: iris_merge
+  vars:
+    remote_path: "/tmp/namespace-merge.cpf"
+    merge_label: "namespace {{ namespace }}"
+
+- name: Show namespace merge output
+  ansible.builtin.debug:
+    msg: "{{ merge_result.stdout_lines | default([]) }}"

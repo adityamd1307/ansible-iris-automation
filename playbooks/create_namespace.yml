@@ -1,35 +1,8 @@
 ---
-# =====================================================================
-# Create/ensure the interop-enabled namespace and mappings via CPF merge
-# =====================================================================
-# Databases must exist first (playbooks/setup_databases.yml). This
-# playbook uses the CPF [Actions] CreateNamespace form so Interoperability
-# is enabled while the namespace is wired to its global/routine databases.
-# CPF merge is idempotent, so re-running is safe.
-#
-# Parameterized entirely from inventories/<env>/group_vars/all.yml:
-#   namespace, globals_db, routines_db
-#
-# Run:  ansible-playbook playbooks/create_namespace.yml -i inventories/poc
 - name: Configure IRIS namespace and mappings
   hosts: iris_nodes
   become: false
   gather_facts: false
 
-  tasks:
-    - name: Stage and push namespace CPF merge file
-      ansible.builtin.include_tasks: tasks/push_file.yml
-      vars:
-        src_template: "{{ playbook_dir }}/../cpf/namespace-template.cpf.j2"
-        staged_name: "namespace-merge.cpf"
-        remote_path: "/tmp/namespace-merge.cpf"
-
-    - name: Apply namespace CPF merge
-      ansible.builtin.include_tasks: tasks/iris_merge.yml
-      vars:
-        remote_path: "/tmp/namespace-merge.cpf"
-        merge_label: "namespace {{ namespace }}"
-
-    - name: Show namespace merge output
-      ansible.builtin.debug:
-        msg: "{{ merge_result.stdout_lines | default([]) }}"
+  roles:
+    - iris_namespace
