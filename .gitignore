@@ -16,6 +16,10 @@ webgatewayb/
 arbiter/
 haproxy/
 
+# --- Staged security sync XML (sensitive) ---
+stage_dir/security-sync/
+**/iris_security_*.xml
+
 # --- Captured run artifacts (keep the folder, ignore its output) ---
 evidence/*.log
 evidence/*.json

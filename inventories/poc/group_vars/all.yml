@@ -126,3 +126,17 @@ mirror_requires_journaling: true
 mirror_databases:
   - "{{ globals_db }}"
   - "{{ routines_db }}"
+
+# ---------------------------------------------------------------------
+# Security sync (primary → backup via Security.* Export/Import)
+# ---------------------------------------------------------------------
+# IRISSECURITY is not mirrored; sync roles/users after bootstrap.
+# Enable explicitly: -e security_sync_enabled=true
+security_sync_enabled: true
+security_sync_dry_run: false
+security_sync_roles_path: /tmp/iris_security_roles.xml
+security_sync_users_path: /tmp/iris_security_users.xml
+security_sync_include_sql_privileges: false
+security_sync_required_roles:
+  - TRAINING_APP
+security_sync_required_users: []

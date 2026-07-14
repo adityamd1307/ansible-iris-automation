@@ -1,0 +1,126 @@
+---
+# Reusable: ensure SecuritySync ObjectScript classes are loaded in %SYS.
+# Idempotent — re-running recompiles only when sources change.
+#
+# Relies on: stage_dir, iris_exec_mode, iris_container, iris_instance.
+
+- name: Ensure SecuritySync class staging dir on control node
+  ansible.builtin.file:
+    path: "{{ stage_dir }}/security-sync/classes"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  run_once: true
+
+- name: Stage SecuritySync class files on control node
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../objectscript/security_sync/{{ item }}"
+    dest: "{{ stage_dir }}/security-sync/classes/{{ item }}"
+    mode: "0644"
+  delegate_to: localhost
+  loop:
+    - SecuritySync.Config.cls
+    - SecuritySync.Util.cls
+    - SecuritySync.Logger.cls
+    - SecuritySync.Result.cls
+    - SecuritySync.Validator.cls
+    - SecuritySync.Exporter.cls
+    - SecuritySync.Importer.cls
+    - SecuritySync.Service.cls
+  run_once: true
+
+- name: Ensure /tmp/security_sync exists in container
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - -u
+      - root
+      - "{{ iris_container | default(inventory_hostname) }}"
+      - mkdir
+      - -p
+      - /tmp/security_sync
+  changed_when: false
+  when: iris_exec_mode == 'docker'
+
+- name: Copy SecuritySync class files into container
+  ansible.builtin.command:
+    argv:
+      - docker
+      - cp
+      - "{{ stage_dir }}/security-sync/classes/{{ item }}"
+      - "{{ iris_container | default(inventory_hostname) }}:/tmp/security_sync/{{ item }}"
+  changed_when: false
+  loop:
+    - SecuritySync.Config.cls
+    - SecuritySync.Util.cls
+    - SecuritySync.Logger.cls
+    - SecuritySync.Result.cls
+    - SecuritySync.Validator.cls
+    - SecuritySync.Exporter.cls
+    - SecuritySync.Importer.cls
+    - SecuritySync.Service.cls
+  when: iris_exec_mode == 'docker'
+
+- name: Ensure /tmp/security_sync exists on host (direct)
+  ansible.builtin.file:
+    path: /tmp/security_sync
+    state: directory
+    mode: "0755"
+  when: iris_exec_mode == 'direct'
+
+- name: Copy SecuritySync class files onto host (direct)
+  ansible.builtin.copy:
+    src: "{{ stage_dir }}/security-sync/classes/{{ item }}"
+    dest: "/tmp/security_sync/{{ item }}"
+    mode: "0644"
+  loop:
+    - SecuritySync.Config.cls
+    - SecuritySync.Util.cls
+    - SecuritySync.Logger.cls
+    - SecuritySync.Result.cls
+    - SecuritySync.Validator.cls
+    - SecuritySync.Exporter.cls
+    - SecuritySync.Importer.cls
+    - SecuritySync.Service.cls
+  when: iris_exec_mode == 'direct'
+
+- name: Stage and push SecuritySync install script
+  ansible.builtin.include_tasks: push_file.yml
+  vars:
+    src_template: "{{ playbook_dir }}/../objectscript/install_security_sync.cos.j2"
+    staged_name: "install_security_sync.cos"
+    remote_path: "/tmp/install_security_sync.cos"
+
+- name: Load and compile SecuritySync classes
+  ansible.builtin.include_tasks: iris_session.yml
+  vars:
+    remote_path: "/tmp/install_security_sync.cos"
+    session_label: "install security sync"
+    session_changed_when: "'COMPILED SecuritySync.Service' in (session_result.stdout | default('')) or 'Load finished successfully' in (session_result.stdout | default(''))"
+
+- name: Remove install script from container (docker)
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - -u
+      - root
+      - "{{ iris_container | default(inventory_hostname) }}"
+      - rm
+      - -f
+      - /tmp/install_security_sync.cos
+  changed_when: false
+  when: iris_exec_mode == 'docker'
+
+- name: Remove install script from host (direct)
+  ansible.builtin.file:
+    path: /tmp/install_security_sync.cos
+    state: absent
+  when: iris_exec_mode == 'direct'
+
+- name: Remove staged install script from control node
+  ansible.builtin.file:
+    path: "{{ stage_dir }}/{{ inventory_hostname }}-install_security_sync.cos"
+    state: absent
+  delegate_to: localhost

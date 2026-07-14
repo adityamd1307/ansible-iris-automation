@@ -11,6 +11,7 @@ express the desired state**:
 | `setup_production.cos.j2` | Configure interop production auto-start | `Ens.Director.GetAutoStartProduction()` checked first; `SetAutoStart()` only if different; try/catch skips non-interop namespaces |
 | `validate_readiness.cos.j2` | Read-only node readiness check (incl. production status), emits JSON | none (read-only) |
 | `validate_mirror.cos.j2` | Read-only mirror-readiness check, emits JSON | none (read-only) |
+| `security_sync/*.cls` + `invoke_security_sync.cos.j2` | Primary → backup roles/users sync via `Security.*` Export/Import | Validator + idempotent import; emits `SECURITY_SYNC_JSON` |
 
 ## Conventions
 

@@ -66,6 +66,9 @@ objectscript/
   setup_production.cos.j2           Guarded interop production auto-start
   validate_readiness.cos.j2         Read-only node readiness (incl. production) -> JSON
   validate_mirror.cos.j2            Read-only mirror readiness -> JSON
+  security_sync/                    SecuritySync ObjectScript module (roles/users sync)
+  invoke_security_sync.cos.j2       Thin invoke script for SecuritySync.Service
+  install_security_sync.cos.j2      Load/compile SecuritySync classes into %SYS
 architecture/                       Mermaid architecture diagram (export to PNG)
 playbooks/
   site.yml                          Infra bring-up + full configure (end to end)
@@ -73,7 +76,8 @@ playbooks/
   configure.yml                     databases -> namespace -> webapp -> security -> production -> validate
   setup_databases.yml create_namespace.yml setup_webapp.yml setup_security.yml setup_production.yml
   validate_nodes.yml validate_mirror.yml test_routing.yml
-  tasks/                            Reusable helpers (push_file, iris_merge, iris_session)
+  sync_security.yml validate_security_sync.yml   Primary → backup security sync
+  tasks/                            Reusable helpers (push_file, fetch_file, iris_merge, iris_session, install_security_sync)
 docs/                               Runbook + mechanism-mapping + failure-modes + secrets + demo-script
 evidence/                           Placeholder for captured run output (git-ignored contents)
 ```
@@ -126,6 +130,43 @@ Capture JSON evidence during validation:
 ansible-playbook playbooks/validate_nodes.yml -i inventories/poc -e write_evidence=true
 # writes evidence/readiness-poc-<node>.json
 ```
+
+---
+
+## 5b. Security sync (primary → backup)
+
+After both nodes are configured and mirroring is enabled, sync roles and
+users from primary to backup (IRISSECURITY is **not** mirrored):
+
+```bash
+# Real import (post-bootstrap or after primary-side security changes)
+ansible-playbook playbooks/sync_security.yml -i inventories/poc \
+  -e security_sync_enabled=true \
+  -e security_sync_dry_run=false
+
+# Dry-run only (validate XML counts without applying)
+ansible-playbook playbooks/sync_security.yml -i inventories/poc \
+  -e security_sync_enabled=true \
+  -e security_sync_dry_run=true
+
+# Optional post-sync validation
+ansible-playbook playbooks/validate_security_sync.yml -i inventories/poc \
+  -e security_sync_enabled=true
+```
+
+E2E proof with a deliberate primary-only delta:
+
+```bash
+ansible-playbook playbooks/sync_security.yml -i inventories/poc \
+  -e security_sync_enabled=true \
+  -e security_sync_dry_run=false \
+  -e security_sync_create_test_delta=true \
+  -e 'security_sync_required_users=["sync_test_user"]' \
+  -e write_evidence=true
+```
+
+Exported XML contains password hashes, not plaintext — treat as sensitive.
+Playbooks use `no_log` and delete XML/invoke scripts after each run.
 
 ---
 

@@ -17,6 +17,7 @@ how idempotency is achieved, and where it lives in this repo.
 | Namespace/DB/web app validation | **ObjectScript (read-only) -> JSON** | Validation, not creation | Read-only; never `changed`; asserts + JSON | `objectscript/validate_readiness.cos.j2`, `playbooks/validate_nodes.yml` |
 | Production status | **ObjectScript (read-only)** | Runtime validation | Read-only; distinguishes primary (running) vs backup (ready) | `objectscript/validate_readiness.cos.j2` |
 | Mirror readiness | **ObjectScript (read-only) + network check** | Validation, not creation | Read-only member/journal check + arbiter `wait_for` | `objectscript/validate_mirror.cos.j2`, `playbooks/validate_mirror.yml` |
+| Security sync (roles/users) | **ObjectScript (Security.* Export/Import) + file transfer** | IRISSECURITY is not mirrored; official API preserves hashes/metadata | Export/import guarded by Validator; re-import is safe; Ansible `changed_when` from log markers + JSON | `objectscript/security_sync/`, `objectscript/invoke_security_sync.cos.j2`, `playbooks/sync_security.yml` |
 | Routing (HAProxy->Gateway->IRIS) | **REST (`uri`)** | Read-only runtime check | Idempotent GET, asserts content | `playbooks/test_routing.yml` |
 
 ## Mechanism rules applied
@@ -45,7 +46,8 @@ statement (including whole guarded `try {...} catch e {...}` blocks) on a
 use the runtime API (e.g. `$system.Status.GetErrorText()`), not macros.
 
 Validation scripts emit their result as one line, `READINESS_JSON:{...}` /
-`MIRROR_JSON:{...}`, which the playbooks select and parse with `from_json`.
+`MIRROR_JSON:{...}` / `SECURITY_SYNC_JSON:{...}`, which the playbooks
+select and parse with `from_json`.
 This avoids fragile multi-line regex against prompt-interleaved output.
 
 ## Service naming note
