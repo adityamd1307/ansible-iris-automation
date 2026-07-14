@@ -22,10 +22,26 @@
           IRISTAG={{ iris_image }}
           WEBGTAG={{ webgateway_image }}
 
+    - name: Verify IRIS license key source exists
+      ansible.builtin.stat:
+        path: "{{ iris_key_source }}"
+      register: iris_key_source_stat
+      when: iris_key_source | length > 0
+
+    - name: Stop early when iris_key_source path is missing
+      ansible.builtin.fail:
+        msg: >-
+          iris_key_source={{ iris_key_source }} does not exist.
+          Provide the full path to your .ISCkey file.
+      when:
+        - iris_key_source | length > 0
+        - not iris_key_source_stat.stat.exists
+
     - name: Copy IRIS license key when a source path is provided
       ansible.builtin.copy:
         src: "{{ iris_key_source }}"
         dest: "{{ project_root }}/{{ item }}"
+        mode: "0600"
         unsafe_writes: true
       loop: "{{ iris_key_targets }}"
       when: iris_key_source | length > 0

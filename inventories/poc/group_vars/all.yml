@@ -34,7 +34,7 @@ namespace_interop: true
 # The POC image accepts CreateNamespace Interop=1, but does not include
 # Ens.* runtime classes. Set true when using an Interoperability-capable
 # image and a real production class.
-namespace_interop_enforce: false
+namespace_interop_enforce: true
 db_directory_root: /usr/irissys/mgr
 
 # Physical databases to create/ensure. Directories are derived from the
@@ -107,7 +107,7 @@ production:
       remote: /tmp/Production.cls
 # Hard-assert production readiness in validation. Leave false until the
 # namespace is genuinely interop-enabled with a real production class.
-production_enforce: false
+production_enforce: true
 
 # ---------------------------------------------------------------------
 # Mirror readiness expectations

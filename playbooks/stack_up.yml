@@ -32,3 +32,11 @@
     - name: Show compose output
       ansible.builtin.debug:
         msg: "{{ (compose_up.stdout_lines + compose_up.stderr_lines) | default([]) }}"
+
+    - name: Wait for IRIS superserver ports to accept connections
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ item.port }}"
+        timeout: 180
+      loop: "{{ service_ports | selectattr('name', 'search', 'superserver') | list }}"
+      when: compose_up is succeeded

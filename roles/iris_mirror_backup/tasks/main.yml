@@ -29,6 +29,11 @@
     staged_name: "setup_mirror_backup.cos"
     remote_path: "/tmp/setup_mirror_backup.cos"
 
+- name: Ensure ISCAgent is running before mirror setup
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: start_iscagent
+
 - name: Run backup mirror setup
   ansible.builtin.include_role:
     name: iris_common

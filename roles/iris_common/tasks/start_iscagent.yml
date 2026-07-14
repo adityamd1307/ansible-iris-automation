@@ -1,0 +1,64 @@
+---
+# Start ISCAgent inside IRIS containers (required for mirroring on licensed images).
+# No-op when the binary is absent (community image) or already running.
+#
+# Required vars: iris_exec_mode, iris_container (docker mode).
+
+- name: Check whether ISCAgent binary exists in container
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - "{{ iris_container | default(inventory_hostname) }}"
+      - test
+      - -x
+      - /home/irisowner/irissys/ISCAgent
+  register: iscagent_bin
+  changed_when: false
+  failed_when: false
+  when: iris_exec_mode == 'docker'
+
+- name: Check whether ISCAgent is already running in container
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - "{{ iris_container | default(inventory_hostname) }}"
+      - sh
+      - -c
+      - pgrep -f ISCAgent >/dev/null
+  register: iscagent_running
+  changed_when: false
+  failed_when: false
+  when:
+    - iris_exec_mode == 'docker'
+    - iscagent_bin.rc == 0
+
+- name: Start ISCAgent in container (docker)
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - -d
+      - "{{ iris_container | default(inventory_hostname) }}"
+      - sh
+      - -c
+      - >-
+        export LD_LIBRARY_PATH=/usr/irissys/lib:/home/irisowner/irissys:$LD_LIBRARY_PATH;
+        /home/irisowner/irissys/ISCAgent start
+  register: iscagent_start
+  changed_when: iscagent_start.rc == 0
+  failed_when: false
+  when:
+    - iris_exec_mode == 'docker'
+    - iscagent_bin.rc == 0
+    - iscagent_running.rc != 0
+
+- name: Wait briefly for ISCAgent to come up
+  ansible.builtin.pause:
+    seconds: 3
+  when:
+    - iris_exec_mode == 'docker'
+    - iscagent_bin.rc == 0
+    - iscagent_running.rc != 0
+    - iscagent_start.rc == 0

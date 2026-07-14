@@ -36,7 +36,18 @@ ansible-playbook playbooks/configure.yml -i inventories/poc
 Or run the full end-to-end flow (infra bring-up **and** IRIS configuration):
 
 ```bash
-ansible-playbook playbooks/site.yml -i inventories/poc -e iris_key_source=/path/to/iris.key
+export IRIS_KEY_SOURCE="/path/to/your/license.ISCkey"
+ansible-playbook playbooks/site.yml -i inventories/poc
+```
+
+For the **full green** flow (configure + security sync + failover production
+validation), use a **licensed** IRIS container image — see
+`docs/licensed-image-setup.md`:
+
+```bash
+export IRIS_KEY_SOURCE="/path/to/your/license.ISCkey"
+ansible-playbook playbooks/site_full.yml -i inventories/poc \
+  -e iris_image=containers.intersystems.com/intersystems/iris:latest-em
 ```
 
 To stop the stack:

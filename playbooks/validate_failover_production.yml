@@ -1,0 +1,85 @@
+---
+# =====================================================================
+# Failover production readiness (read-only, mirror-role aware)
+# =====================================================================
+# Proves BOTH nodes have production auto-start configured so a promoted
+# backup is application-ready. On the backup, production_running=false is
+# expected while it remains a backup (mirrored DBs are read-only).
+#
+# Run after configure.yml (+ sync_security.yml if used):
+#   ansible-playbook playbooks/validate_failover_production.yml -i inventories/poc
+- name: Validate failover production readiness
+  hosts: iris_nodes
+  become: false
+  gather_facts: false
+
+  tasks:
+    - name: Skip when production automation is disabled
+      ansible.builtin.meta: end_play
+      when: not (production is defined and (production.enabled | default(false)))
+
+    - name: Stage and push readiness validation script
+      ansible.builtin.include_role:
+        name: iris_common
+        tasks_from: push_file
+      vars:
+        src_template: "{{ playbook_dir }}/../objectscript/validate_readiness.cos.j2"
+        staged_name: "validate_readiness.cos"
+        remote_path: "/tmp/validate_readiness.cos"
+
+    - name: Run readiness validation (read-only)
+      ansible.builtin.include_role:
+        name: iris_common
+        tasks_from: iris_session
+      vars:
+        remote_path: "/tmp/validate_readiness.cos"
+        session_label: "failover production readiness"
+
+    - name: Extract and parse readiness JSON
+      ansible.builtin.set_fact:
+        readiness: >-
+          {{ (session_result.stdout_lines
+              | select('match', '^READINESS_JSON:')
+              | list | last | regex_replace('^READINESS_JSON:', '')) | from_json }}
+
+    - name: Show failover production readiness
+      ansible.builtin.debug:
+        msg: "{{ readiness }}"
+
+    - name: Assert interop/production is available when enforcement is on
+      ansible.builtin.assert:
+        that:
+          - readiness.interop_available == true
+          - readiness.production_configured == true
+        fail_msg: >-
+          Production not configured on {{ inventory_hostname }}.
+          Use a licensed interop-capable IRIS image and re-run setup_production.yml.
+      when: production_enforce | default(false) | bool
+
+    - name: Assert primary production is running when enforcement is on
+      ansible.builtin.assert:
+        that:
+          - readiness.production_running == true
+        fail_msg: "Production is not running on primary {{ inventory_hostname }}."
+      when:
+        - production_enforce | default(false) | bool
+        - mirror_role | default('') == 'primary'
+
+    - name: Assert backup has auto-start configured (running may be false)
+      ansible.builtin.assert:
+        that:
+          - readiness.production_configured == true
+        fail_msg: >-
+          Backup {{ inventory_hostname }} is not production-ready
+          (auto-start not configured). Re-run setup_production.yml on both nodes.
+      when:
+        - production_enforce | default(false) | bool
+        - mirror_role | default('') == 'backup'
+
+    - name: Write failover production evidence (optional)
+      ansible.builtin.copy:
+        dest: "{{ playbook_dir }}/../evidence/failover-production-{{ iris_env }}-{{ inventory_hostname }}.json"
+        content: "{{ readiness | to_nice_json }}\n"
+        mode: "0644"
+      delegate_to: localhost
+      when: write_evidence | default(false) | bool
