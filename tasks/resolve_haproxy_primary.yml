@@ -1,0 +1,27 @@
+---
+- name: Determine active mirror primary host
+  ansible.builtin.set_fact:
+    mirror_active_primary: "{{ item }}"
+  when: hostvars[item].is_active_mirror_primary | default(false) | bool
+  loop: "{{ groups['iris_nodes'] }}"
+  run_once: true
+
+- name: Fallback to inventory primary when mirror is not established
+  ansible.builtin.set_fact:
+    mirror_active_primary: "{{ groups['iris_primary'][0] }}"
+  when: mirror_active_primary is not defined
+  run_once: true
+
+- name: Map active primary to HAProxy web gateway backend
+  ansible.builtin.set_fact:
+    haproxy_backend_host: "{{ haproxy_primary_backends[mirror_active_primary].host }}"
+    haproxy_backend_ip: "{{ haproxy_primary_backends[mirror_active_primary].ip }}"
+  run_once: true
+
+- name: Show resolved HAProxy backend
+  ansible.builtin.debug:
+    msg:
+      mirror_active_primary: "{{ mirror_active_primary }}"
+      haproxy_backend_host: "{{ haproxy_backend_host }}"
+      haproxy_backend_ip: "{{ haproxy_backend_ip }}"
+  run_once: true

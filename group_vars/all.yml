@@ -18,6 +18,28 @@ iris_key_targets:
   - irisa/iris.key
   - irisb/iris.key
 
+webgateway_iris_port: 1972
+webgateway_configs:
+  webgatewaya:
+    dir: webgatewaya
+    iris_host: irisa
+    server_name: IRISA
+  webgatewayb:
+    dir: webgatewayb
+    iris_host: irisb
+    server_name: IRISB
+
+# HAProxy :8080 follows the active mirror primary's Web Gateway (see
+# playbooks/update_haproxy_primary.yml). Initial seed uses irisa.
+haproxy_initial_primary: irisa
+haproxy_primary_backends:
+  irisa:
+    host: webgatewaya
+    ip: 172.28.0.20
+  irisb:
+    host: webgatewayb
+    ip: 172.28.0.21
+
 service_ports:
   - name: irisa superserver
     host: 127.0.0.1

@@ -18,7 +18,7 @@ how idempotency is achieved, and where it lives in this repo.
 | Production status | **ObjectScript (read-only)** | Runtime validation | Read-only; distinguishes primary (running) vs backup (ready) | `objectscript/validate_readiness.cos.j2` |
 | Mirror readiness | **ObjectScript (read-only) + network check** | Validation, not creation | Read-only member/journal check + arbiter `wait_for` | `objectscript/validate_mirror.cos.j2`, `playbooks/validate_mirror.yml` |
 | Security sync (roles/users) | **ObjectScript (Security.* Export/Import) + file transfer** | IRISSECURITY is not mirrored; official API preserves hashes/metadata | Export/import guarded by Validator; re-import is safe; Ansible `changed_when` from log markers + JSON | `objectscript/security_sync/`, `objectscript/invoke_security_sync.cos.j2`, `playbooks/sync_security.yml` |
-| Routing (HAProxy->Gateway->IRIS) | **REST (`uri`)** | Read-only runtime check | Idempotent GET, asserts content | `playbooks/test_routing.yml` |
+| Routing (HAProxy->Gateway->IRIS) | **ObjectScript (read-only) + template + reload** | `:8080` must follow the active mirror primary, not a static gateway | Detect primary via `$SYSTEM.Mirror.IsPrimary()`, render `haproxy.cfg`, reload; validated with REST GET | `tasks/detect_mirror_primary.yml`, `tasks/resolve_haproxy_primary.yml`, `playbooks/update_haproxy_primary.yml`, `playbooks/test_routing.yml` |
 
 ## Mechanism rules applied
 

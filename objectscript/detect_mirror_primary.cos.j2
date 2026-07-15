@@ -1,0 +1,8 @@
+; Read-only mirror primary detection -> single-line PRIMARY_DETECT_JSON
+zn "%SYS"
+set isPrimary=0
+try { set isPrimary=$select($SYSTEM.Mirror.IsPrimary():1,1:0) } catch e { set isPrimary=0 }
+set q=$char(34)
+set j="{"_q_"node"_q_":"_q_$System.INetInfo.LocalHostName()_q_","_q_"is_primary"_q_":"_$select(isPrimary:"true",1:"false")_"}"
+write !,"PRIMARY_DETECT_JSON:"_j
+halt

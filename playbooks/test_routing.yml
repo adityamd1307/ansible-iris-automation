@@ -1,4 +1,6 @@
 ---
+- import_playbook: update_haproxy_primary.yml
+
 - name: Test HAProxy to IRIS Application Routing
   hosts: localhost
   connection: local
@@ -13,7 +15,9 @@
         return_content: true
       register: web_response
       failed_when: "'InterSystems IRIS' not in web_response.content"
-      
+
     - name: Output success message
       ansible.builtin.debug:
-        msg: "Routing test passed successfully! HAProxy is serving IRIS content."
+        msg: >-
+          Routing test passed. HAProxy :8080 serves IRIS via backend
+          {{ haproxy_backend_host | default('(see update_haproxy_primary)') }}.

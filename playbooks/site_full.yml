@@ -12,5 +12,6 @@
 - import_playbook: stack_up.yml
 - import_playbook: verify.yml
 - import_playbook: configure.yml
+- import_playbook: update_haproxy_primary.yml
 - import_playbook: validate_failover_production.yml
 - import_playbook: test_routing.yml

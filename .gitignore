@@ -1,6 +1,7 @@
 # --- Secrets: never commit ---
 .env
 *.key
+*.ISCkey
 iris.key
 
 # Encrypted vault holds real credentials; the *.example.yml template is OK.
@@ -24,5 +25,6 @@ stage_dir/security-sync/
 evidence/*.log
 evidence/*.json
 evidence/*.txt
+evidence/demo-notes.md
 !evidence/README.md
 !evidence/.gitkeep

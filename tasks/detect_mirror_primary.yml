@@ -1,0 +1,32 @@
+---
+- name: Stage and push mirror primary detection script
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: push_file
+  vars:
+    src_template: "{{ playbook_dir }}/../objectscript/detect_mirror_primary.cos.j2"
+    staged_name: detect_mirror_primary.cos
+    remote_path: /tmp/detect_mirror_primary.cos
+
+- name: Run mirror primary detection (read-only)
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: iris_session
+  vars:
+    remote_path: /tmp/detect_mirror_primary.cos
+    session_label: mirror primary detection
+
+- name: Parse PRIMARY_DETECT_JSON
+  ansible.builtin.set_fact:
+    mirror_detect: >-
+      {{ (session_result.stdout_lines
+          | select('match', '^PRIMARY_DETECT_JSON:')
+          | list | last | regex_replace('^PRIMARY_DETECT_JSON:', '')) | from_json }}
+
+- name: Record whether this node is the active mirror primary
+  ansible.builtin.set_fact:
+    is_active_mirror_primary: "{{ mirror_detect.is_primary | bool }}"
+
+- name: Show mirror primary detection result
+  ansible.builtin.debug:
+    msg: "{{ mirror_detect }}"

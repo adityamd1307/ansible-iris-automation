@@ -52,7 +52,7 @@ Edit later with `ansible-vault edit group_vars/vault.yml`.
 
 ## 4. Controls in place
 
-- **`.gitignore`** blocks `*.key`, `.env`, `group_vars/vault.yml`,
+- **`.gitignore`** blocks `*.key`, `*.ISCkey`, `.env`, `group_vars/vault.yml`,
   `**/vault.yml`, and generated evidence output.
 - **`no_log: true`** on every task that touches a key or password
   (license copy, vault load, password rotation) so values never reach

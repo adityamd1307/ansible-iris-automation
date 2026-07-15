@@ -1,0 +1,68 @@
+---
+# =====================================================================
+# Point HAProxy (:8080) at the Web Gateway for the active mirror primary
+# =====================================================================
+# Detects the current primary at runtime (scales beyond static inventory
+# groups), renders haproxy.cfg, and reloads the container.
+#
+# Run after configure or failover:
+#   ansible-playbook playbooks/update_haproxy_primary.yml -i inventories/poc
+- name: Detect active mirror primary on IRIS nodes
+  hosts: iris_nodes
+  become: false
+  gather_facts: false
+  tasks:
+    - ansible.builtin.include_tasks: ../tasks/detect_mirror_primary.yml
+
+- name: Update HAProxy to follow the active primary
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all.yml
+  vars:
+    project_root: "{{ playbook_dir }}/.."
+    haproxy_cfg_path: "{{ project_root }}/haproxy/haproxy.cfg"
+  tasks:
+    - ansible.builtin.include_tasks: ../tasks/resolve_haproxy_primary.yml
+
+    - name: Ensure HAProxy config directory exists
+      ansible.builtin.file:
+        path: "{{ project_root }}/haproxy"
+        state: directory
+        mode: "0755"
+
+    - name: Render HAProxy config for active primary backend
+      ansible.builtin.template:
+        src: "{{ project_root }}/config/haproxy/haproxy.cfg.j2"
+        dest: "{{ haproxy_cfg_path }}"
+        mode: "0644"
+      register: haproxy_cfg_render
+
+    - name: Reload HAProxy when config changed
+      ansible.builtin.command:
+        argv:
+          - docker
+          - kill
+          - -s
+          - HUP
+          - haproxy
+      when: haproxy_cfg_render is changed
+      changed_when: true
+      failed_when: false
+
+    - name: Restart HAProxy when reload is unavailable
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - --project-name
+          - "{{ compose_project_name }}"
+          - --file
+          - "{{ project_root }}/docker-compose.yml"
+          - restart
+          - haproxy
+        chdir: "{{ project_root }}"
+      when: haproxy_cfg_render is changed
+      environment:
+        IRISTAG: "{{ iris_image | default(lookup('env', 'IRISTAG')) }}"
+        WEBGTAG: "{{ webgateway_image | default(lookup('env', 'WEBGTAG')) }}"
