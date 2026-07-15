@@ -15,7 +15,7 @@ irisb/
 webgatewaya/
 webgatewayb/
 arbiter/
-haproxy/
+/haproxy/
 
 # --- Staged security sync XML (sensitive) ---
 stage_dir/security-sync/

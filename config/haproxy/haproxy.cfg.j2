@@ -1,0 +1,20 @@
+# Managed by playbooks/update_haproxy_primary.yml — routes :8080 to the
+# Web Gateway in front of the current mirror primary (not a static node).
+global
+  log stdout format raw daemon
+  maxconn 256
+
+defaults
+  log global
+  mode http
+  timeout connect 10s
+  timeout client 60s
+  timeout server 60s
+
+frontend http_front
+  bind *:80
+  default_backend iris_primary_gateway
+
+backend iris_primary_gateway
+  option httpchk GET /csp/sys/UtilHome.csp
+  server primary {{ haproxy_backend_host }}:80 check
