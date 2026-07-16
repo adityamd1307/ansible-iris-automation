@@ -1,0 +1,59 @@
+Class {{ namespace }}.FailoverWatcher Extends %RegisteredObject
+{
+
+Parameter CheckInterval = 5;
+
+ClassMethod Start() As %Status
+{
+    Set ^FailoverWatcher("enabled")=1
+    If $Get(^FailoverWatcher("pid"))'="",$Data(^$JOB(^FailoverWatcher("pid"))) {
+        Quit $$$OK
+    }
+    Job ..Run()
+    Set ^FailoverWatcher("pid")=$ZCHILD
+    Quit $$$OK
+}
+
+ClassMethod Stop() As %Status
+{
+    Set ^FailoverWatcher("enabled")=0
+    Quit $$$OK
+}
+
+ClassMethod Run()
+{
+    Set ^FailoverWatcher("startedAt")=$ZDATETIME($HOROLOG,3,1)
+    Set ^FailoverWatcher("pid")=$JOB
+    For {
+        Quit:'+$Get(^FailoverWatcher("enabled"),1)
+        Do ..CheckOnce()
+        Hang ..#CheckInterval
+    }
+}
+
+ClassMethod CheckOnce()
+{
+    Try {
+        If '$SYSTEM.Mirror.IsPrimary() {
+            Set ^FailoverWatcher("lastRole")="not-primary"
+            Quit
+        }
+        Set ^FailoverWatcher("lastRole")="primary"
+        Do ##class(Ens.Director).GetProductionStatus(.pName,.pState)
+        If +$Get(pState)=1 {
+            Set ^FailoverWatcher("lastStatus")="running"
+            Quit
+        }
+        Set sc=##class(Ens.Director).StopProduction(10,1)
+        Set ^FailoverWatcher("lastStop")=$SYSTEM.Status.GetErrorText(sc)
+        Set sc=##class(Ens.Director).killProductionGlobals(0)
+        Set ^FailoverWatcher("lastClear")=$SYSTEM.Status.GetErrorText(sc)
+        Set sc=##class(Ens.Director).StartProduction("{{ production.class }}")
+        Set ^FailoverWatcher("lastStart")=$SYSTEM.Status.GetErrorText(sc)
+        Set ^FailoverWatcher("lastStartAt")=$ZDATETIME($HOROLOG,3,1)
+    } Catch ex {
+        Set ^FailoverWatcher("lastError")=ex.DisplayString()
+    }
+}
+
+}

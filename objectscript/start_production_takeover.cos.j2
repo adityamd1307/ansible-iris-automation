@@ -1,0 +1,12 @@
+; =====================================================================
+; Start interoperability production after mirror takeover
+; =====================================================================
+; Intended for the node that is currently mirror primary after failover.
+; A hard-killed former primary can leave mirrored Ens runtime state marked
+; "not shutdown cleanly". Clearing production runtime globals with
+; pKillAppDataToo=0 removes that stale runtime state without deleting
+; application data, then starts the configured production.
+write !, "--- PRODUCTION TAKEOVER START ---"
+try { zn "{{ namespace }}" if '$SYSTEM.Mirror.IsPrimary() { write !,"SKIP not-current-primary" halt } set desired="{{ production.class }}" if '##class(%Dictionary.CompiledClass).%ExistsId(desired) { write !,"SKIP production-class-missing "_desired halt } set sc=##class(Ens.Director).StopProduction(10,1) write !,"STOP FORCE sc="_$system.Status.GetErrorText(sc) set sc=##class(Ens.Director).killProductionGlobals(0) write !,"CLEAR RUNTIME STATE sc="_$system.Status.GetErrorText(sc) set sc=##class(Ens.Director).StartProduction(desired) write !,"START PRODUCTION "_desired_" sc="_$system.Status.GetErrorText(sc) do ##class(Ens.Director).GetProductionStatus(.pName,.pState) write !,"STATUS "_$get(pName)_" state="_$get(pState) } catch e { write !,"ERROR takeover-start: "_e.DisplayString() }
+write !, "--- END PRODUCTION TAKEOVER START ---"
+halt

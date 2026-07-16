@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="24">
+<Routine name="%ZSTART" type="MAC" languagemode="0"><![CDATA[
+%ZSTART ; User startup routine. 
+ 
+SYSTEM ; Any code here is run just once when Cache starts. 
+ 
+ ;***ADD CODE BELOW HERE***
+ 
+ 
+ 
+ ;the set below writes the current # of customer contacts to ^PhonebookLog
+ ;$HOROLOG provides the current data and time in Cache internal format.
+  set ^PhonebookLog($HOROLOG,"System Start","Customer")= ^Phonebook.CustomerD 
+ 
+ 
+ 
+ quit 
+ 
+LOGIN ; Any code here is run when a user logs into Cache. 
+  
+ new proc,username,machname 
+ set proc = ##class(%SYS.ProcessQuery).%OpenId($j)
+ 
+ set username = proc.UserName
+ set machname = proc.ClientNodeName
+ 
+ ; Set log global with appropriate information 
+ ; ***ADD CODE BELOW HERE and before the If line***
+ 
+ 
+ if $IO["|TNT|" {
+ 	set ^PhonebookLog($HOROLOG,"Telnet","Customer",username)= ^Phonebook.CustomerD
+ 	set ^PhonebookLog($HOROLOG,"Telnet","NodeName", machname) = ""
+ }
+ else {
+  	set ^PhonebookLog($HOROLOG,"Terminal","Customer",username)= ^Phonebook.CustomerD
+ 	set ^PhonebookLog($HOROLOG,"Terminal","NodeName", machname) = ""
+}
+  
+ quit 
+ 
+ 
+	;JOB ; Any code here is run when a process is started via JOB command.
+	;DO NOT ADD ANY CODE TO THIS SECTION 
+ 
+CALLIN ; Any code here is run when a process is started via CALLIN interface. 
+]]></Routine>
+
+
+<Routine name="%ZSTOP" type="MAC" languagemode="0"><![CDATA[
+%ZSTOP ; User shutdown routine. 
+ 
+SYSTEM ; Any code here is run just once when Cache stops. 
+ 
+ 
+ zn "PHONEBOOK"
+ set ^PhonebookLog($HOROLOG, "System Shutdown","Customer")= ^Phonebook.CustomerD
+ 
+ ;This code runs %SS and writes the output to c:\temp\ss.txt
+ ;***ADD CODE BELOW HERE***
+ 
+ 
+ 
+ 
+LOGIN ; Any code here is run when a user logs out of Cache. 
+                 
+	;JOB ; Any code here is run when a JOB'd process exits.
+	;DO NOT ADD ANY CODE TO THIS SECTION  
+ 
+CALLIN ; Any code here is run when a process exits via CALLIN interface. 
+]]></Routine>
+</Export>

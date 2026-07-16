@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25">
+<Routine name="ZAUTHENTICATE" type="MAC" languagemode="0"><![CDATA[
+ZAUTHENTICATE(ServiceName,Username,Password,Properties) PUBLIC {
+ #include %occErrors
+ set $ZTrap="Error"
+ //set Name=$ZConvert(Username,"U")
+ set Name=$ZCONVERT($piece(Username,"@",1),"U")
+ set UserRecord=$get(^MYUSERS(Name))
+ if (UserRecord="")
+ { 
+ quit $SYSTEM.Status.Error($$$UserDoesNotExist,Username)
+ }
+ if ($SYSTEM.Encryption.SHA1Hash(Password)'= $List(UserRecord,1))
+ { 
+ quit $SYSTEM.Status.Error($$$UserInvalidPassword)
+ 
+ }
+ set Properties("FullName")=$List(UserRecord,2)
+ set Properties("Comment")=""
+ set Properties("Roles")="%All"
+ set Properties("NameSpace")=""
+ set Properties("Routine")=""
+ set Properties("Password")=Password
+ set Properties("Username")=Name
+ quit $SYSTEM.Status.OK()
+Error
+ set $ZTrap=""
+ quit $SYSTEM.Status.Error(5002 /*$$$CacheError*/,$ZError)
+ }
+]]></Routine>
+</Export>

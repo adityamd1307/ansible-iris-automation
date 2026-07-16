@@ -1,0 +1,12 @@
+; =====================================================================
+; CPF MERGE TEMPLATE - Interoperability production startup
+; =====================================================================
+; Rendered by Ansible (playbooks/setup_production.yml).
+;
+; InterSystems documents EnsembleAutoStart in the CPF [Startup] section
+; as the startup gate for Interoperability productions. The production
+; class itself is imported on the primary only; mirrored routine DBs are
+; read-only on the backup.
+
+[Startup]
+EnsembleAutoStart={{ 1 if production.auto_start | default(false) else 0 }}

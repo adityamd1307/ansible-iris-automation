@@ -7,6 +7,7 @@ write !, "--- PRODUCTION CLASS IMPORT ---"
 set hasEns=0
 try { zn "{{ namespace }}" set hasEns=##class(%Dictionary.CompiledClass).%ExistsId("Ens.Director") } catch e { set hasEns=0 }
 if 'hasEns { write !,"SKIP production-class-import interop-not-available" write !,"--- END PRODUCTION CLASS IMPORT ---" halt }
+try { if ($SYSTEM.Mirror.GetMemberType()'="Not Member")&&('$SYSTEM.Mirror.IsPrimary()) { write !,"SKIP production-class-import not-current-primary" write !,"--- END PRODUCTION CLASS IMPORT ---" halt } } catch e { }
 {% for cls in production.classes | default([]) %}
 set sc=$SYSTEM.OBJ.Load("{{ cls.remote }}","ck") write !,"LOAD {{ cls.name }} sc="_$system.Status.GetErrorText(sc)
 {% endfor %}

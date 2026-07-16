@@ -1,0 +1,58 @@
+---
+# =====================================================================
+# Start production on the current mirror primary after failover
+# =====================================================================
+# Use after an unclean primary kill/promote test if Interoperability
+# refuses auto-start with ErrProductionNotShutdownCleanly.
+- name: Start production on current mirror primary after failover
+  hosts: iris_nodes
+  become: false
+  gather_facts: false
+
+  tasks:
+    - name: Check container is running
+      ansible.builtin.command:
+        argv:
+          - docker
+          - inspect
+          - -f
+          - "{{ '{{.State.Running}}' }}"
+          - "{{ iris_container | default(inventory_hostname) }}"
+      register: container_running
+      changed_when: false
+      failed_when: false
+      when: iris_exec_mode == 'docker'
+
+    - name: Stage and push production takeover start script
+      ansible.builtin.include_role:
+        name: iris_common
+        tasks_from: push_file
+      vars:
+        src_template: "{{ playbook_dir }}/../objectscript/start_production_takeover.cos.j2"
+        staged_name: "start_production_takeover.cos"
+        remote_path: "/tmp/start_production_takeover.cos"
+      when: iris_exec_mode != 'docker' or container_running.stdout == 'true'
+
+    - name: Run production takeover start
+      ansible.builtin.include_role:
+        name: iris_common
+        tasks_from: iris_session
+      vars:
+        remote_path: "/tmp/start_production_takeover.cos"
+        session_label: "production takeover start"
+        session_changed_when: "'START PRODUCTION' in (session_result.stdout | default(''))"
+      when: iris_exec_mode != 'docker' or container_running.stdout == 'true'
+
+    - name: Show production takeover start output
+      ansible.builtin.debug:
+        msg: "{{ session_result.stdout_lines | default([]) }}"
+      when: iris_exec_mode != 'docker' or container_running.stdout == 'true'
+
+    - name: Assert takeover start did not error on current primary
+      ansible.builtin.assert:
+        that:
+          - "'ERROR takeover-start' not in (session_result.stdout | default(''))"
+          - "'ErrProductionNotShutdownCleanly' not in (session_result.stdout | default(''))"
+        fail_msg: "Production takeover start failed; see output above."
+        success_msg: "Production takeover start completed or skipped cleanly."
+      when: iris_exec_mode != 'docker' or container_running.stdout == 'true'

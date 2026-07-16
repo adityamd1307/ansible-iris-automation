@@ -2,7 +2,9 @@
 ; Guarded / idempotent interoperability production auto-start
 ; =====================================================================
 ; Rendered by playbooks/setup_production.yml. Runs INSIDE the interop
-; namespace and configures the auto-start production via Ens.Director.
+; namespace and attempts to configure the named auto-start production.
+; The CPF [Startup] EnsembleAutoStart gate is applied separately by
+; cpf/production-startup-template.cpf.j2.
 ;
 ; This is done via ObjectScript (not CPF) because auto-start is an
 ; operational API setting. It is guarded: the current setting is checked
@@ -16,9 +18,13 @@
 ; REPL and cannot continue a { } block across input lines.
 write !, "--- PRODUCTION SETUP ---"
 {% if production.auto_start | default(false) %}
-try { zn "{{ namespace }}" set desired="{{ production.class }}" set cur=##class(Ens.Director).GetAutoStartProduction() if cur'=desired { set sc=##class(Ens.Director).SetAutoStart(desired) write !,"SET AUTOSTART "_desired_" sc="_$system.Status.GetErrorText(sc) } else { write !,"EXISTS AUTOSTART "_desired } } catch e { write !,"SKIP interop-not-enabled-or-missing-class: "_e.DisplayString() }
+try { zn "{{ namespace }}" set desired="{{ production.class }}" if '##class(%Dictionary.CompiledClass).%ExistsId(desired) { write !,"SKIP production-class-missing "_desired } else { write !,"EXISTS PRODUCTION CLASS "_desired } } catch e { write !,"SKIP interop-not-enabled-or-missing-class: "_e.DisplayString() }
+try { zn "{{ namespace }}" if ##class(%Dictionary.CompiledClass).%ExistsId("{{ namespace }}.FailoverWatcher") { set sc=##class({{ namespace }}.FailoverWatcher).Start() write !,"START FAILOVER WATCHER sc="_$system.Status.GetErrorText(sc) } else { write !,"SKIP failover-watcher-class-missing" } } catch e { write !,"SKIP failover-watcher-start: "_e.DisplayString() }
+{% if mirror_role | default('') == 'primary' %}
+try { zn "{{ namespace }}" set desired="{{ production.class }}" if ##class(%Dictionary.CompiledClass).%ExistsId(desired) { set sc=##class(Ens.Director).StartProduction(desired) write !,"START PRODUCTION "_desired_" sc="_$system.Status.GetErrorText(sc) } } catch e { write !,"SKIP production-start: "_e.DisplayString() }
+{% endif %}
 {% else %}
-try { zn "{{ namespace }}" set cur=##class(Ens.Director).GetAutoStartProduction() if cur'="" { set sc=##class(Ens.Director).SetAutoStart("") write !,"CLEARED AUTOSTART was "_cur } else { write !,"EXISTS no-autostart" } } catch e { write !,"SKIP interop-not-enabled-or-missing-class: "_e.DisplayString() }
+try { zn "{{ namespace }}" write !,"EXISTS no-autostart" } catch e { write !,"SKIP interop-not-enabled-or-missing-class: "_e.DisplayString() }
 {% endif %}
 write !, "--- END PRODUCTION SETUP ---"
 halt

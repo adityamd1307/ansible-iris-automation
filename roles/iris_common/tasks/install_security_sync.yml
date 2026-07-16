@@ -99,6 +99,16 @@
     session_label: "install security sync"
     session_changed_when: "'COMPILED SecuritySync.Service' in (session_result.stdout | default('')) or 'Load finished successfully' in (session_result.stdout | default(''))"
 
+- name: Assert SecuritySync classes compiled cleanly
+  ansible.builtin.assert:
+    that:
+      - "'ERROR #' not in (session_result.stdout | default(''))"
+      - "'<CLASS DOES NOT EXIST>' not in (session_result.stdout | default(''))"
+      - "'<METHOD DOES NOT EXIST>' not in (session_result.stdout | default(''))"
+      - "'COMPILED SecuritySync.Service' in (session_result.stdout | default(''))"
+    fail_msg: "SecuritySync class install failed; see compile output above."
+    success_msg: "SecuritySync classes compiled cleanly."
+
 - name: Remove install script from container (docker)
   ansible.builtin.command:
     argv:

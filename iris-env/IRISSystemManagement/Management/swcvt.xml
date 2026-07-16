@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="9" zv="Cache for Windows NT (Intel) 5.0.1 (Build 544)" ts="2003-06-19 17:06:49">
+<Routine name="swcvt" type="MAC" languagemode="0" timestamp="59339,56921"><![CDATA[
+swcvt(x) ; convert a sum of powers of 2 to the powers themselves
+		; Example of use: USER>w $$^swcvt(5120) returns 12,10,
+         set sw = ""
+         while (x'=0) {
+             set sw1 = $zlog(x) \ $zlog(2)
+             set sw = sw _ sw1 _ ","
+             set x = x - (2 ** sw1) }
+         quit sw
+
+]]></Routine>
+<Checksum value="1752103130"/>
+</Export>

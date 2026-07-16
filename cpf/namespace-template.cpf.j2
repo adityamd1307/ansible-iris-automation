@@ -13,4 +13,4 @@
 ; databases, and enables Interoperability for the namespace.
 
 [Actions]
-CreateNamespace:Name={{ namespace }},Globals={{ globals_db }},Routines={{ routines_db }},Interop={{ 1 if namespace_interop | default(true) else 0 }}
+CreateNamespace:Name={{ namespace }},Globals={{ globals_db }},Routines={{ routines_db }},Interop=1 

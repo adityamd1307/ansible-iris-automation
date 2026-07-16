@@ -1,0 +1,50 @@
+<html>
+<head>
+<title>Cache Server Page</title>
+</head>
+<body bgcolor="#FFFFFF">
+<h1 align="center">Phonebook.Company</h1>
+<!-- This function is needed by the search button on the form -->
+<script language='javascript'>
+<!--
+function update(id)
+{
+     #server(..formLoad(id))#;
+     return true;
+}
+// -->
+</script>
+
+<!-- use CSP:OBJECT tag to create a reference to an instance of the class -->
+<csp:object name="objForm" classname="Phonebook.Company" OBJID=#(%request.Get("OBJID"))#>
+
+<!-- use csp:search tag to create a javascript function to invoke a search page --> 
+<csp:search name="form_search" classname="Phonebook.Company" where="Name" options="popup,nopredicates" onselect="update">
+
+<form name="form" cspbind="objForm" cspjs="All" onsubmit='return form_validate();'>
+<center>
+<table cellpadding="3">
+  <tr>
+    <td><b><div align="right">Name:</div></b></td>
+    <td><input type="text" name="Name" cspbind="Name" size=""></td>
+  </tr>
+  <tr>
+    <td><b><div align="right">Address:</div></b></td>
+    <td><input type="text" name="Address" cspbind="Address" size=""></td>
+  </tr>
+  <tr>
+    <td><font color="#666666"><b><div align="right">ID:</div></b></font></td>
+    <td><input type="text" name="sys_Id" cspbind="%Id()" size="10" readonly></td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td><input type="button" name="btnClear" value="Clear" onclick='form_new();'>
+      <input type="button" name="btnSave" value="Save" onclick='form_save();'>
+      <input type="button" name="btnSearch" value="Search" onclick='form_search();'></td>
+  </tr>
+</table>
+</center>
+</form>
+
+</body>
+</html>

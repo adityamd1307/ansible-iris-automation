@@ -4,8 +4,23 @@
     msg: "production not defined/enabled for {{ iris_env | default('env') }}; skipping."
   when: not (production is defined and (production.enabled | default(false)))
 
+- name: Check production target container is running
+  ansible.builtin.command:
+    argv:
+      - docker
+      - inspect
+      - -f
+      - "{{ '{{.State.Running}}' }}"
+      - "{{ iris_container | default(inventory_hostname) }}"
+  register: production_container_running
+  changed_when: false
+  failed_when: false
+  when: iris_exec_mode == 'docker'
+
 - name: Configure production auto-start
-  when: production is defined and (production.enabled | default(false))
+  when:
+    - production is defined and (production.enabled | default(false))
+    - iris_exec_mode != 'docker' or production_container_running.stdout == 'true'
   block:
     - name: Ensure Interoperability temp directory exists inside container (docker)
       ansible.builtin.command:
@@ -41,6 +56,23 @@
         state: directory
         mode: "0755"
       when: iris_exec_mode == 'direct'
+
+    - name: Stage and push production startup CPF merge file
+      ansible.builtin.include_role:
+        name: iris_common
+        tasks_from: push_file
+      vars:
+        src_template: "{{ playbook_dir }}/../cpf/production-startup-template.cpf.j2"
+        staged_name: "production-startup.cpf"
+        remote_path: "/tmp/production-startup.cpf"
+
+    - name: Apply production startup CPF merge
+      ansible.builtin.include_role:
+        name: iris_common
+        tasks_from: iris_merge
+      vars:
+        remote_path: "/tmp/production-startup.cpf"
+        merge_label: "production startup"
 
     - name: Stage and push production class sources
       ansible.builtin.include_role:
@@ -83,7 +115,8 @@
           - "'ERROR #' not in (session_result.stdout | default(''))"
         fail_msg: "Production class import failed; see output above."
         success_msg: "Production class import completed or skipped cleanly."
-      when: "'SKIP production-class-import' not in (session_result.stdout | default(''))"
+      when:
+        - "'SKIP production-class-import' not in (session_result.stdout | default(''))"
 
     - name: Stage and push production setup script
       ansible.builtin.include_role:

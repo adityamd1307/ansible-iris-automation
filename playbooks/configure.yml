@@ -12,11 +12,11 @@
 #   ansible-playbook playbooks/configure.yml -i inventories/poc \
 #     -e rotate_admin_password=true --ask-vault-pass
 - import_playbook: setup_databases.yml
+- import_playbook: setup_mirror.yml
 - import_playbook: create_namespace.yml
 - import_playbook: setup_webapp.yml
 - import_playbook: setup_security.yml
 - import_playbook: setup_production.yml
-- import_playbook: setup_mirror.yml
 - import_playbook: validate_nodes.yml
 - import_playbook: validate_mirror.yml
 - import_playbook: sync_security.yml
