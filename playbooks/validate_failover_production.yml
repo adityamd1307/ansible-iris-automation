@@ -52,7 +52,8 @@
           - readiness.production_configured == true
         fail_msg: >-
           Production not configured on {{ inventory_hostname }}.
-          Use a licensed interop-capable IRIS image and re-run setup_production.yml.
+          Use a licensed interop-capable IRIS image and re-run setup_production_import.yml,
+          then setup_production_autostart.yml.
       when: production_enforce | default(false) | bool
 
     - name: Assert primary production is running when enforcement is on

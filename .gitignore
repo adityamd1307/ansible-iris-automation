@@ -17,6 +17,18 @@ webgatewayb/
 arbiter/
 /haproxy/
 
+# Keep the small Web Gateway config files used by iris-env docker-compose.
+!iris-env/
+!iris-env/IRISSystemManagement/
+!iris-env/IRISSystemManagement/webgatewaya/
+iris-env/IRISSystemManagement/webgatewaya/*
+!iris-env/IRISSystemManagement/webgatewaya/CSP.ini
+!iris-env/IRISSystemManagement/webgatewaya/CSP.conf
+!iris-env/IRISSystemManagement/webgatewayb/
+iris-env/IRISSystemManagement/webgatewayb/*
+!iris-env/IRISSystemManagement/webgatewayb/CSP.ini
+!iris-env/IRISSystemManagement/webgatewayb/CSP.conf
+
 # --- Staged security sync XML (sensitive) ---
 stage_dir/security-sync/
 **/iris_security_*.xml
