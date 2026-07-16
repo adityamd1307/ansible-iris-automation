@@ -1,9 +1,9 @@
 ; =====================================================================
 ; Guarded mirror primary setup
 ; =====================================================================
-; Creates/starts the mirror set on the primary, adds the backup member,
-; and marks configured databases as mirrored. Intended to run on the
-; iris_primary host before the backup join step.
+; Creates/starts the mirror set on the primary and marks configured
+; databases as mirrored. Run on iris_primary before backup join;
+; AddFailoverMember runs later via setup_mirror_primary_add_failover.cos.j2.
 zn "%SYS"
 write !, "--- MIRROR PRIMARY SETUP ---"
 set mirror="{{ mirror_name }}"
@@ -11,7 +11,6 @@ set member=$SYSTEM.Mirror.GetMemberType()
 if member="Not Member" { set sc=##class(SYS.Mirror).CreateNewMirrorSet(mirror,"{{ inventory_hostname }}",.mirrorInfo,.sslInfo) write !,"CREATE MIRROR "_mirror_" sc="_$system.Status.GetErrorText(sc) } else { write !,"EXISTS MIRROR MEMBER type="_member }
 if '##class(SYS.Mirror).IsMirrorStarted(mirror) { set sc=##class(SYS.Mirror).StartMirror(mirror) write !,"START MIRROR "_mirror_" sc="_$system.Status.GetErrorText(sc) } else { write !,"EXISTS MIRROR STARTED "_mirror }
 if $SYSTEM.Mirror.IsPrimary() { write !,"EXISTS PRIMARY" } else { write !,"ROLE DRIFT expected primary but this member is not primary - leaving mirror role unchanged" halt }
-set sc=##class(SYS.Mirror).AddFailoverMember(mirror,"{{ iris_instance | default('IRIS') }}","{{ hostvars[groups['iris_backup'][0]].inventory_hostname }}",2188) set err=$system.Status.GetErrorText(sc) write !,$select(err["ERROR #2137":"EXISTS FAILOVER {{ groups['iris_backup'][0] }}",1:"ADD FAILOVER {{ groups['iris_backup'][0] }} sc="_err)
 {% for db in mirror_databases | default([]) %}
 {% set db_item = (databases | selectattr('name','equalto',db) | list | first) %}
 {% if db_item is defined %}

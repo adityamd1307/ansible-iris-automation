@@ -47,7 +47,7 @@ validation), use a **licensed** IRIS container image — see
 ```bash
 export IRIS_KEY_SOURCE="/path/to/your/license.ISCkey"
 ansible-playbook playbooks/site_full.yml -i inventories/poc \
-  -e iris_image=containers.intersystems.com/intersystems/iris:latest-em
+  -e iris_image=containers.intersystems.com/intersystems/iris:latest-cd
 ```
 
 To stop the stack:
@@ -68,9 +68,10 @@ desired state in `inventories/<env>/group_vars/all.yml`, in order:
 3. `setup_webapp.yml`     - CSP web app via guarded **ObjectScript**
 4. `setup_security.yml`   - services + roles/password via guarded **ObjectScript**
    (CPF has no services section)
-5. `setup_production.yml` - interop production auto-start (guarded ObjectScript)
-6. `validate_nodes.yml`   - read-only node readiness incl. production (asserts + JSON)
-7. `validate_mirror.yml`  - read-only mirror readiness (arbiter + journaling)
+5. `setup_production.yml` - import production on primary; auto-start on all nodes
+6. `setup_mirror.yml`      - primary create → backup join → primary add-failover
+7. `validate_nodes.yml`   - read-only node readiness incl. production (asserts + JSON)
+8. `validate_mirror.yml`  - read-only mirror readiness (arbiter + journaling)
 
 Everything is idempotent and parameterized. Switch environments by
 changing `-i inventories/dev|sit|uat` - no code changes.
@@ -92,8 +93,8 @@ command line:
 
 ```bash
 ansible-playbook playbooks/site.yml \
-  -e iris_image=containers.intersystems.com/intersystems/iris:latest-em \
-  -e webgateway_image=containers.intersystems.com/intersystems/webgateway:latest-em \
+  -e iris_image=containers.intersystems.com/intersystems/iris:latest-cd \
+  -e webgateway_image=containers.intersystems.com/intersystems/webgateway:latest-cd \
   -e iris_key_source=/path/to/iris.key
 ```
 

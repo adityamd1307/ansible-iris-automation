@@ -1,0 +1,12 @@
+; =====================================================================
+; Guarded mirror primary failover-member registration
+; =====================================================================
+; Adds the backup as a failover member after backup join. Intended to
+; run on iris_primary as the final mirror setup step.
+zn "%SYS"
+write !, "--- MIRROR PRIMARY ADD FAILOVER ---"
+set mirror="{{ mirror_name }}"
+if '$SYSTEM.Mirror.IsPrimary() { write !,"ROLE DRIFT expected primary but this member is not primary - leaving mirror role unchanged" halt }
+set sc=##class(SYS.Mirror).AddFailoverMember(mirror,"{{ iris_instance | default('IRIS') }}","{{ hostvars[groups['iris_backup'][0]].inventory_hostname }}",2188) set err=$system.Status.GetErrorText(sc) write !,$select(err["ERROR #2137":"EXISTS FAILOVER {{ groups['iris_backup'][0] }}",1:"ADD FAILOVER {{ groups['iris_backup'][0] }} sc="_err)
+write !, "--- END MIRROR PRIMARY ADD FAILOVER ---"
+halt

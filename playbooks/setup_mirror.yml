@@ -1,5 +1,7 @@
 ---
-- name: Configure mirror primary
+# Mirror setup order (meeting M3): primary creates the mirror set, backup
+# joins, then primary registers the backup as a failover member.
+- name: Configure mirror primary (create mirror set and databases)
   hosts: iris_primary
   become: false
   gather_facts: false
@@ -7,10 +9,18 @@
   roles:
     - iris_mirror_primary
 
-- name: Configure mirror backup
+- name: Configure mirror backup (join mirror set)
   hosts: iris_backup
   become: false
   gather_facts: false
 
   roles:
     - iris_mirror_backup
+
+- name: Register backup failover member on primary
+  hosts: iris_primary
+  become: false
+  gather_facts: false
+
+  roles:
+    - iris_mirror_primary_finalize

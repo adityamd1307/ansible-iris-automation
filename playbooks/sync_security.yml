@@ -86,12 +86,24 @@
         session_changed_when: "'Roles exported' in (session_result.stdout | default(''))"
       when: (mirror_enabled | default(false) | bool) and (security_sync_enabled | default(false) | bool)
 
+    - name: Collect SECURITY_SYNC_JSON lines from session output
+      ansible.builtin.set_fact:
+        security_sync_json_lines: "{{ session_result.stdout_lines | default([]) | select('match', '^SECURITY_SYNC_JSON:') | list }}"
+      when: (mirror_enabled | default(false) | bool) and (security_sync_enabled | default(false) | bool)
+
+    - name: Fail when export JSON is missing from session output
+      ansible.builtin.fail:
+        msg: >-
+          Security export on {{ inventory_hostname }} produced no SECURITY_SYNC_JSON line.
+          Check SecuritySync install and session output.
+      when:
+        - (mirror_enabled | default(false) | bool) and (security_sync_enabled | default(false) | bool)
+        - security_sync_json_lines | default([]) | length == 0
+
     - name: Parse export SECURITY_SYNC_JSON
       ansible.builtin.set_fact:
         security_sync_export: >-
-          {{ (session_result.stdout_lines
-              | select('match', '^SECURITY_SYNC_JSON:')
-              | list | last | regex_replace('^SECURITY_SYNC_JSON:', '')) | from_json }}
+          {{ (security_sync_json_lines | last | regex_replace('^SECURITY_SYNC_JSON:', '')) | from_json }}
       when: (mirror_enabled | default(false) | bool) and (security_sync_enabled | default(false) | bool)
 
     - name: Show export result (counts only)

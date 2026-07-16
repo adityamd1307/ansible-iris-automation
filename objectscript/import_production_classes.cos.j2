@@ -10,5 +10,7 @@ if 'hasEns { write !,"SKIP production-class-import interop-not-available" write 
 {% for cls in production.classes | default([]) %}
 set sc=$SYSTEM.OBJ.Load("{{ cls.remote }}","ck") write !,"LOAD {{ cls.name }} sc="_$system.Status.GetErrorText(sc)
 {% endfor %}
+set desired="{{ production.class }}"
+if ##class(%Dictionary.CompiledClass).%ExistsId(desired) { if '##class(Ens.Config.Production).%ExistsId(desired) { set prod=##class(Ens.Config.Production).LoadFromClass(desired) if $IsObject(prod) { set sc=prod.%Save() write !,"REGISTER PRODUCTION CONFIG "_desired_" sc="_$system.Status.GetErrorText(sc) } else { write !,"FAIL REGISTER PRODUCTION CONFIG "_desired } } else { write !,"EXISTS PRODUCTION CONFIG "_desired } } else { write !,"SKIP production-config-register class-missing "_desired }
 write !, "--- END PRODUCTION CLASS IMPORT ---"
 halt

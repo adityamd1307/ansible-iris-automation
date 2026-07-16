@@ -65,6 +65,14 @@
       loop_control:
         label: "{{ item.key }}"
 
+    - name: Remove stale web gateway durable state so CSP mounts take effect
+      ansible.builtin.file:
+        path: "{{ project_root }}/{{ item.value.dir }}/durable"
+        state: absent
+      loop: "{{ webgateway_configs | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
     - name: Write community compose override when no license key is required
       ansible.builtin.copy:
         dest: "{{ project_root }}/docker-compose.override.yml"

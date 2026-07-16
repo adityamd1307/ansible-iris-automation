@@ -1,8 +1,5 @@
 ---
-- name: Configure interoperability production auto-start
-  hosts: iris_nodes
-  become: false
-  gather_facts: false
-
-  roles:
-    - iris_production
+# Deprecated umbrella — import/register on primary, then auto-start on primary
+# after setup_mirror.yml. Prefer the split playbooks in configure.yml.
+- import_playbook: setup_production_import.yml
+- import_playbook: setup_production_autostart.yml

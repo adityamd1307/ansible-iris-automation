@@ -31,9 +31,8 @@ namespace: TRAINING
 globals_db: TRAININGDATA
 routines_db: TRAININGCODE
 namespace_interop: true
-# The POC image accepts CreateNamespace Interop=1, but does not include
-# Ens.* runtime classes. Set true when using an Interoperability-capable
-# image and a real production class.
+# Requires intersystems/iris (not irishealth) for Ens.Director / production.
+# Multi-arch latest-cd pulls arm64 on Apple Silicon automatically.
 namespace_interop_enforce: true
 db_directory_root: /usr/irissys/mgr
 
@@ -80,8 +79,8 @@ security_services:
 # ---------------------------------------------------------------------
 # Interoperability production auto-start (guarded ObjectScript)
 # ---------------------------------------------------------------------
-# Auto-start must be configured on BOTH nodes because IRISSECURITY and
-# interop settings are not mirrored. On a base IRIS image the namespace
+# Auto-start is configured on the mirror primary; journaled namespace globals
+# replicate to the backup for failover. On a base IRIS image the namespace
 # may not be interop-enabled; the setup is guarded and skips gracefully.
 production:
   class: TRAINING.Production

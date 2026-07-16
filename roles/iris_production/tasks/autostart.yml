@@ -1,0 +1,22 @@
+---
+- name: Stage and push production setup script
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: push_file
+  vars:
+    src_template: "{{ playbook_dir }}/../objectscript/setup_production.cos.j2"
+    staged_name: "setup_production.cos"
+    remote_path: "/tmp/setup_production.cos"
+
+- name: Run production auto-start setup
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: iris_session
+  vars:
+    remote_path: "/tmp/setup_production.cos"
+    session_label: "production auto-start"
+    session_changed_when: "'SET AUTOSTART' in (session_result.stdout | default('')) or 'CLEARED AUTOSTART' in (session_result.stdout | default(''))"
+
+- name: Show production setup output
+  ansible.builtin.debug:
+    msg: "{{ session_result.stdout_lines | default([]) }}"

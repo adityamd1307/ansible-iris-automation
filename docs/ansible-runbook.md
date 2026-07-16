@@ -19,8 +19,10 @@ node to a declarative desired state:
 3. **Web application** created via guarded ObjectScript (`objectscript/setup_webapp.cos.j2`)
 4. **Security** - services + roles/password via guarded ObjectScript
    (`objectscript/setup_security.cos.j2`; CPF has no services section)
-5. **Interop production auto-start** via guarded ObjectScript (`objectscript/setup_production.cos.j2`)
-6. **Validation** of node readiness (incl. production status) and **mirror readiness** (read-only, JSON)
+5. **Interop production** - classes imported on **primary only**; auto-start on **all nodes**
+   (`playbooks/setup_production.yml`; routines replicate via mirrored code DB)
+6. **Mirror** - primary create → backup join → primary add-failover (`setup_mirror.yml`)
+7. **Validation** of node readiness (incl. production status) and **mirror readiness** (read-only, JSON)
 
 See `docs/mechanism-mapping.md` for the full per-item mechanism table
 (CPF vs ObjectScript vs REST) and `architecture/` for the diagram.
@@ -107,7 +109,14 @@ ansible-playbook playbooks/configure.yml -i inventories/poc
 ```
 
 `configure.yml` on its own runs: databases -> namespace -> web app ->
-security -> node validation -> mirror validation.
+security -> production -> mirror -> node validation -> mirror validation.
+
+For full Topic 1 green (interop + production), use a licensed
+`intersystems/iris:latest-cd` image — see `docs/licensed-image-setup.md`.
+`prepare.yml` seeds Web Gateway CSP config (port 1972, `CSPSystem`) and
+removes stale `webgateway*/durable` so `:8081`/`:8082` serve IRIS on
+first boot. If a license path contains spaces, use a symlink or JSON
+`-e '{"iris_key_source": "/path/with spaces/key"}'`.
 
 ---
 

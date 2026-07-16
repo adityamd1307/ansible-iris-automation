@@ -41,7 +41,7 @@
   vars:
     remote_path: "/tmp/setup_mirror_primary.cos"
     session_label: "mirror primary"
-    session_changed_when: "'CREATE MIRROR' in (session_result.stdout | default('')) or 'ADD FAILOVER' in (session_result.stdout | default('')) or 'ADD DATABASE' in (session_result.stdout | default(''))"
+    session_changed_when: "'CREATE MIRROR' in (session_result.stdout | default('')) or 'ADD DATABASE' in (session_result.stdout | default(''))"
 
 - name: Show primary mirror setup output
   ansible.builtin.debug:

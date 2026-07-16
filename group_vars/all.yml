@@ -1,7 +1,7 @@
 compose_project_name: iris-automation
 
-iris_image: "{{ lookup('env', 'IRISTAG') | default('containers.intersystems.com/intersystems/iris:latest-em', true) }}"
-webgateway_image: "{{ lookup('env', 'WEBGTAG') | default('containers.intersystems.com/intersystems/webgateway:latest-em', true) }}"
+iris_image: "{{ lookup('env', 'IRISTAG') | default('containers.intersystems.com/intersystems/iris:latest-cd', true) }}"
+webgateway_image: "{{ lookup('env', 'WEBGTAG') | default('containers.intersystems.com/intersystems/webgateway:latest-cd', true) }}"
 
 iris_key_source: "{{ lookup('env', 'IRIS_KEY_SOURCE') | default('', true) }}"
 require_iris_key: true

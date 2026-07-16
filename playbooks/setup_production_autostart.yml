@@ -1,0 +1,13 @@
+---
+# Configure production auto-start on the mirror primary after join (M9).
+# Auto-start is namespace-level; mirrored globals carry it to the backup.
+- name: Configure production auto-start on mirror primary
+  hosts: iris_primary
+  become: false
+  gather_facts: false
+  vars:
+    production_run_import: false
+    production_run_autostart: true
+
+  roles:
+    - iris_production

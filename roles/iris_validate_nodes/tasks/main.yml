@@ -45,7 +45,10 @@
       - (mirror_role | default('') != 'primary') or (readiness.production_running == true)
     fail_msg: >-
       Production readiness FAILED on {{ inventory_hostname }}
-      (role={{ mirror_role | default('unknown') }}). See JSON above.
+      (role={{ mirror_role | default('unknown') }}).
+      Primary: auto-start must match {{ production.class | default('production') }} and be running.
+      Backup: mirrored production class and Ens.Config.Production must exist.
+      See JSON above.
     success_msg: "Production readiness OK on {{ inventory_hostname }} (role: {{ mirror_role | default('unknown') }})."
   when:
     - production is defined

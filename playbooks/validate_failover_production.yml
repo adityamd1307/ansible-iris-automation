@@ -2,9 +2,8 @@
 # =====================================================================
 # Failover production readiness (read-only, mirror-role aware)
 # =====================================================================
-# Proves BOTH nodes have production auto-start configured so a promoted
-# backup is application-ready. On the backup, production_running=false is
-# expected while it remains a backup (mirrored DBs are read-only).
+# Proves the primary runs production with auto-start and the backup has the
+# mirrored production class + Ens.Config.Production for failover readiness.
 #
 # Run after configure.yml (+ sync_security.yml if used):
 #   ansible-playbook playbooks/validate_failover_production.yml -i inventories/poc
@@ -65,13 +64,16 @@
         - production_enforce | default(false) | bool
         - mirror_role | default('') == 'primary'
 
-    - name: Assert backup has auto-start configured (running may be false)
+    - name: Assert backup has mirrored production config (running may be false)
       ansible.builtin.assert:
         that:
           - readiness.production_configured == true
+          - readiness.production_class_exists == true
+          - readiness.production_config_exists == true
         fail_msg: >-
           Backup {{ inventory_hostname }} is not production-ready
-          (auto-start not configured). Re-run setup_production.yml on both nodes.
+          (mirrored class/config missing). Re-run setup_production_import.yml
+          on primary, then setup_mirror.yml and validate again.
       when:
         - production_enforce | default(false) | bool
         - mirror_role | default('') == 'backup'

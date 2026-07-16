@@ -1,0 +1,13 @@
+---
+# Import production classes and register Ens.Config.Production on the mirror
+# primary only (M6). Mirrored globals/routines replicate to the backup.
+- name: Import production classes on mirror primary
+  hosts: iris_primary
+  become: false
+  gather_facts: false
+  vars:
+    production_run_import: true
+    production_run_autostart: false
+
+  roles:
+    - iris_production
