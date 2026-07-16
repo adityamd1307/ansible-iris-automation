@@ -33,6 +33,23 @@
   changed_when: false
   when: iris_exec_mode == 'docker'
 
+- name: Set database directory permissions inside container (docker)
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - --user
+      - root
+      - "{{ iris_container | default(inventory_hostname) }}"
+      - chmod
+      - "0755"
+      - "{{ item.directory }}"
+  loop: "{{ databases }}"
+  loop_control:
+    label: "{{ item.name }} -> {{ item.directory }}"
+  changed_when: false
+  when: iris_exec_mode == 'docker'
+
 - name: Create database directories on host (direct)
   ansible.builtin.file:
     path: "{{ item.directory }}"

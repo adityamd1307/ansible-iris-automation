@@ -4,8 +4,23 @@
     msg: "production not defined/enabled for {{ iris_env | default('env') }}; skipping."
   when: not (production is defined and (production.enabled | default(false)))
 
+- name: Check production target container is running
+  ansible.builtin.command:
+    argv:
+      - docker
+      - inspect
+      - -f
+      - "{{ '{{.State.Running}}' }}"
+      - "{{ iris_container | default(inventory_hostname) }}"
+  register: production_container_running
+  changed_when: false
+  failed_when: false
+  when: iris_exec_mode == 'docker'
+
 - name: Configure production
-  when: production is defined and (production.enabled | default(false))
+  when:
+    - production is defined and (production.enabled | default(false))
+    - iris_exec_mode != 'docker' or production_container_running.stdout == 'true'
   block:
     - name: Import production classes on primary
       ansible.builtin.import_tasks: import.yml

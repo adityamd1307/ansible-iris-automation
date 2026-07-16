@@ -1,0 +1,10 @@
+Description of files in c:\SysMgt.DelegatedAuthentication folder: Contains files to do delegated authentication
+PhonebookClasses.xml: Classes for the Phonebook application
+
+PhonebookInstaller.xml: %Installer for Phonebook applicationPhonebookFiles folder: Files for the Phonebook application
+PhonebookRoutine.ro: Phonebook routine
+
+MIS.Simulation class contains methods used in several exercises (replaces sm.xml)
+swcvt.xml: swcvt routine to convert a SWITCH value from CSTAT into the actual list of switches currently set. 
+zbackup.xml: ZBACKUP routine
+zstart.xml: %ZSTART routine.

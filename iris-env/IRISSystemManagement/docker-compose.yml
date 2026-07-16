@@ -1,178 +1,132 @@
 services:
-
-  #
-  # IRIS A
-  #
   irisa:
-    image: ${IRISTAG}
+    image: ${IRISTAG:?Set IRISTAG in .env}
+    pull_policy: missing
     init: true
     container_name: irisa
     hostname: irisa
-
+    restart: unless-stopped
     ports:
       - "51773:1972"
       - "52773:52773"
       - "21881:2188"
-
     environment:
-      - ISC_DATA_DIRECTORY=/iris-shared/durable
-
+      ISC_DATA_DIRECTORY: /iris-shared/durable
     volumes:
       - ./irisa:/iris-shared
-
     command: --key /iris-shared/iris.key
-
     cap_add:
       - NET_ADMIN
-
     networks:
       iris_net:
         ipv4_address: 172.28.0.10
 
-
-  #
-  # IRIS B
-  #
   irisb:
-    image: ${IRISTAG}
+    image: ${IRISTAG:?Set IRISTAG in .env}
+    pull_policy: missing
     init: true
     container_name: irisb
     hostname: irisb
-
+    restart: unless-stopped
     ports:
       - "61773:1972"
       - "62773:52773"
       - "21882:2188"
-
     environment:
-      - ISC_DATA_DIRECTORY=/iris-shared/durable
-
+      ISC_DATA_DIRECTORY: /iris-shared/durable
     volumes:
       - ./irisb:/iris-shared
-
     command: --key /iris-shared/iris.key
-
     cap_add:
       - NET_ADMIN
-
     networks:
       iris_net:
         ipv4_address: 172.28.0.11
 
-
-  #
-  # Web Gateway A
-  #
   webgatewaya:
-    image: ${WEBGTAG}
+    image: ${WEBGTAG:?Set WEBGTAG in .env}
+    pull_policy: missing
     init: true
     container_name: webgatewaya
     hostname: webgatewaya
-
+    restart: unless-stopped
     ports:
       - "8081:80"
-
     environment:
-      - ISC_DATA_DIRECTORY=/webgateway-shared/durable
-      - ISC_CSP_CONF_FILE=/webgateway-shared/CSP.conf
-      - ISC_CSP_INI_FILE=/webgateway-shared/CSP.ini
-
+      ISC_DATA_DIRECTORY: /webgateway-shared/durable
+      ISC_CSP_CONF_FILE: /webgateway-shared/CSP.conf
+      ISC_CSP_INI_FILE: /webgateway-shared/CSP.ini
     volumes:
       - ./webgatewaya:/webgateway-shared
       - ./webgatewaya/CSP.ini:/webgateway-shared/CSP.ini:ro
       - ./webgatewaya/CSP.conf:/webgateway-shared/CSP.conf:ro
-
     depends_on:
       - irisa
-
     networks:
       iris_net:
         ipv4_address: 172.28.0.20
 
-
-  #
-  # Web Gateway B
-  #
   webgatewayb:
-    image: ${WEBGTAG}
+    image: ${WEBGTAG:?Set WEBGTAG in .env}
+    pull_policy: missing
     init: true
     container_name: webgatewayb
     hostname: webgatewayb
-
+    restart: unless-stopped
     ports:
       - "8082:80"
-
     environment:
-      - ISC_DATA_DIRECTORY=/webgateway-shared/durable
-      - ISC_CSP_CONF_FILE=/webgateway-shared/CSP.conf
-      - ISC_CSP_INI_FILE=/webgateway-shared/CSP.ini
-
+      ISC_DATA_DIRECTORY: /webgateway-shared/durable
+      ISC_CSP_CONF_FILE: /webgateway-shared/CSP.conf
+      ISC_CSP_INI_FILE: /webgateway-shared/CSP.ini
     volumes:
       - ./webgatewayb:/webgateway-shared
       - ./webgatewayb/CSP.ini:/webgateway-shared/CSP.ini:ro
       - ./webgatewayb/CSP.conf:/webgateway-shared/CSP.conf:ro
-
     depends_on:
       - irisb
-
     networks:
       iris_net:
         ipv4_address: 172.28.0.21
 
-
-  #
-  # Arbiter
-  #
   arbiter:
-    image: containers.intersystems.com/intersystems/arbiter:latest-cd
-
+    image: ${ARBITER_IMAGE:-containers.intersystems.com/intersystems/arbiter:latest-cd}
+    pull_policy: missing
     init: true
     container_name: arbiter
     hostname: arbiter
-
+    restart: unless-stopped
     ports:
       - "21883:2188"
-
     environment:
-      - ISC_DATA_DIRECTORY=/arbiter-shared/durable
-
+      ISC_DATA_DIRECTORY: /arbiter-shared/durable
     volumes:
       - ./arbiter:/arbiter-shared
-
     networks:
       iris_net:
         ipv4_address: 172.28.0.30
 
-
-  #
-  # HAProxy
-  #
   haproxy:
-    image: haproxy:latest
-
+    image: ${HAPROXY_IMAGE:-haproxy:3.1-alpine}
+    pull_policy: missing
+    init: true
     container_name: haproxy
     hostname: haproxy
-
+    restart: unless-stopped
     ports:
       - "8080:80"
-      - "8443:443"
-
     volumes:
-      - ./haproxy:/usr/local/etc/haproxy
-
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     depends_on:
       - webgatewaya
       - webgatewayb
-
     networks:
       iris_net:
         ipv4_address: 172.28.0.40
 
-
 networks:
   iris_net:
     driver: bridge
-
     ipam:
       config:
         - subnet: 172.28.0.0/16

@@ -104,6 +104,9 @@ production:
     - name: Production.cls
       src: objectscript/production/Production.cls.j2
       remote: /tmp/Production.cls
+    - name: FailoverWatcher.cls
+      src: objectscript/production/FailoverWatcher.cls.j2
+      remote: /tmp/FailoverWatcher.cls
 # Hard-assert production readiness in validation. Leave false until the
 # namespace is genuinely interop-enabled with a real production class.
 production_enforce: true
