@@ -1,8 +1,9 @@
-/// Pre/post validation for SecuritySync export/import files and state.
+/// Pre/post validation for SecuritySync export/import files and live state.
+/// Used before import (file existence) and after import / validate playbook (required lists + counts).
 Class SecuritySync.Validator Extends %RegisteredObject
 {
 
-/// Verify export/import XML files exist before import.
+/// Verify export/import XML files exist on this node before Import runs.
 ClassMethod ValidateFiles(config As SecuritySync.Config, result As SecuritySync.Result) As %Boolean
 {
     Set ok=1
@@ -23,7 +24,8 @@ ClassMethod ValidateOneFile(path As %String, label As %String, result As Securit
     Quit 1
 }
 
-/// Assert required roles/users exist after import; populate counts via Export API.
+/// Assert required roles/users exist; populate RoleCount/UserCount for SECURITY_SYNC_JSON.
+/// Required lists come from inventory security_sync_required_roles / _users (comma-separated in cfg).
 ClassMethod ValidatePostImport(config As SecuritySync.Config, result As SecuritySync.Result) As %Boolean
 {
     Set result.Step = "validate_post_import"
@@ -64,7 +66,7 @@ ClassMethod ValidateRequiredList(list As %String, kind As %String, result As Sec
     Quit ok
 }
 
-/// Return live role/user count using the official Export API (count-only temp file).
+/// Live role/user count using Export API to a temp file (deleted immediately).
 ClassMethod CountViaExport(kind As %String) As %Integer
 {
     Set num=0

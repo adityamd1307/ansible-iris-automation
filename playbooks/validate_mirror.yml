@@ -1,4 +1,11 @@
 ---
+# =====================================================================
+# Read-only mirror membership validation (primary/backup, arbiter, journaling)
+# =====================================================================
+# Emits MIRROR_JSON per node. Never mutates IRIS.
+#
+# Run: ansible-playbook playbooks/validate_mirror.yml -i inventories/poc
+# See docs/mirror-overview.md · docs/validation-overview.md
 - name: Validate mirror readiness
   hosts: iris_nodes
   become: false

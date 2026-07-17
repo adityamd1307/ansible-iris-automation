@@ -1,25 +1,38 @@
-/// Structured result object emitted as SECURITY_SYNC_JSON by Service methods.
+/// Structured result for SecuritySync operations.
+/// Serialized by ToJSON() and emitted as one stdout line:
+///   SECURITY_SYNC_JSON:{...}
+/// Ansible playbooks regex-select that line and parse with from_json.
 Class SecuritySync.Result Extends %RegisteredObject
 {
 
+/// false when any AddError was called or upstream status failed.
 Property OK As %Boolean [ InitialExpression = 1 ];
 
+/// Pipeline step name (export, import_complete, validate, create_test_delta, etc.).
 Property Step As %String [ InitialExpression = "" ];
 
+/// true when Importer ran with dryRun=1 (Flags=1).
 Property DryRun As %Boolean [ InitialExpression = 0 ];
 
+/// Count from primary Security.Roles.Export (export play).
 Property RolesExported As %Integer [ InitialExpression = 0 ];
 
+/// Count from primary Security.Users.Export (export play).
 Property UsersExported As %Integer [ InitialExpression = 0 ];
 
+/// Count from Security.Roles.Import on backup (import / dry-run play).
 Property RolesImported As %Integer [ InitialExpression = 0 ];
 
+/// Count from Security.Users.Import on backup (import / dry-run play).
 Property UsersImported As %Integer [ InitialExpression = 0 ];
 
+/// Live role count on this node after import (Validator CountViaExport).
 Property RoleCount As %Integer [ InitialExpression = -1 ];
 
+/// Live user count on this node after import (Validator CountViaExport).
 Property UserCount As %Integer [ InitialExpression = -1 ];
 
+/// Human-readable error messages; also sets OK=0 when populated via AddError.
 Property Errors As list Of %String;
 
 Method %OnNew() As %Status
@@ -39,6 +52,8 @@ Method AddError(msg As %String)
     Set ..OK = 0
 }
 
+/// JSON field names match ansible-runbook / security-overview expected markers
+/// (ok, roles_imported, users_imported, role_count, user_count, errors, ...).
 Method ToJSON() As %String
 {
     Set q=$CHAR(34)

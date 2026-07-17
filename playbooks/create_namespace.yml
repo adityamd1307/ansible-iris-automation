@@ -1,4 +1,11 @@
 ---
+# =====================================================================
+# Namespace creation and global/routine DB mappings (CPF merge)
+# =====================================================================
+# Prerequisite: setup_databases.yml. Applied on all nodes.
+#
+# Run: ansible-playbook playbooks/create_namespace.yml -i inventories/poc
+# See docs/namespace-overview.md
 - name: Configure IRIS namespace and mappings
   hosts: iris_nodes
   become: false

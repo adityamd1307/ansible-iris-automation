@@ -1,4 +1,7 @@
-/// Façade for SecuritySync export/import orchestration (Ansible entry point).
+/// Façade for SecuritySync export/import orchestration.
+/// Ansible entry point: invoke_security_sync.cos.j2 calls these ClassMethods.
+/// Every public Run* method finishes with EmitResult → SECURITY_SYNC_JSON line
+/// on stdout for playbook parsing (see docs/security-overview.md).
 Class SecuritySync.Service Extends %RegisteredObject
 {
 
@@ -14,12 +17,14 @@ ClassMethod BuildLogger(config As SecuritySync.Config) As SecuritySync.Logger
     Quit logger
 }
 
+/// Write machine-readable result for Ansible (single line, prefix SECURITY_SYNC_JSON:).
 ClassMethod EmitResult(result As SecuritySync.Result)
 {
     Write !,"SECURITY_SYNC_JSON:"_result.ToJSON()
 }
 
-/// Export roles then users from this instance.
+/// Primary-side export: roles XML then users XML via official Security.* Export APIs.
+/// Populates result.RolesExported / UsersExported; fails fast on first error.
 ClassMethod RunExport(config As SecuritySync.Config = "") As SecuritySync.Result
 {
     If config="" Set config=..BuildConfig()
@@ -33,7 +38,7 @@ ClassMethod RunExport(config As SecuritySync.Config = "") As SecuritySync.Result
     Quit result
 }
 
-/// Import roles then users (real import, Flags=0).
+/// Backup-side real import (Flags=0). Runs Validator after successful import.
 ClassMethod RunImport(config As SecuritySync.Config = "") As SecuritySync.Result
 {
     If config="" Set config=..BuildConfig()
@@ -49,7 +54,7 @@ ClassMethod RunImport(config As SecuritySync.Config = "") As SecuritySync.Result
     Quit result
 }
 
-/// Dry-run import (Flags=1) — validates files and counts without mutating.
+/// Backup-side dry-run (Import Flags=1) — validates files and counts without mutating IRISSECURITY.
 ClassMethod DryRunImport(config As SecuritySync.Config = "") As SecuritySync.Result
 {
     If config="" Set config=..BuildConfig()
@@ -63,7 +68,7 @@ ClassMethod DryRunImport(config As SecuritySync.Config = "") As SecuritySync.Res
     Quit result
 }
 
-/// Export on this node then import (single-node helper; mirror sync uses Ansible transfer).
+/// Export on this node then import (single-node helper; mirror sync uses Ansible file transfer instead).
 ClassMethod RunSync(config As SecuritySync.Config = "") As SecuritySync.Result
 {
     If config="" Set config=..BuildConfig()
@@ -74,7 +79,8 @@ ClassMethod RunSync(config As SecuritySync.Config = "") As SecuritySync.Result
     Quit ..RunImport(config)
 }
 
-/// Read-only validation of required roles/users and counts on this instance.
+/// Read-only validation: required roles/users from config + live counts via Export API.
+/// Used by validate_security_sync.yml on all nodes.
 ClassMethod RunValidate(config As SecuritySync.Config = "") As SecuritySync.Result
 {
     If config="" Set config=..BuildConfig()
@@ -85,7 +91,8 @@ ClassMethod RunValidate(config As SecuritySync.Config = "") As SecuritySync.Resu
     Quit result
 }
 
-/// E2E helper: create a deliberate primary-only security delta before export.
+/// E2E demo helper: deliberate primary-only delta before export/sync.
+/// Creates SYNC_TEST_ROLE and sync_test_user; bumps TRAINING_APP description timestamp.
 ClassMethod CreateTestDelta() As SecuritySync.Result
 {
     Set result=##class(SecuritySync.Result).%New()

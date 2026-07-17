@@ -4,6 +4,8 @@ A ~10-minute walkthrough proving working, idempotent, secret-safe IRIS
 automation across two nodes with mirror readiness. Capture output into
 `evidence/` as you go.
 
+**All topic guides:** [docs/README.md](README.md)
+
 > Set a shell variable to keep commands short:
 > `INV=inventories/poc`
 
@@ -109,12 +111,79 @@ ansible-playbook playbooks/stack_down.yml -i $INV
 
 ---
 
+## 9. Security demo (primary → backup sync) - 3 min
+
+> "Mirroring copies data databases, not IRISSECURITY. Bootstrap puts the same
+> roles on both nodes; sync exports from primary and imports on backup so
+> failover has matching users and role definitions."
+
+Full reference: [security-overview.md](security-overview.md).
+
+**Show desired state** (roles + sync flags):
+
+```bash
+sed -n '63,77p' inventories/poc/group_vars/all.yml   # security_roles, security_services
+sed -n '132,144p' inventories/poc/group_vars/all.yml # security_sync_*
+```
+
+**Bootstrap** (if not already done via `configure.yml`):
+
+```bash
+ansible-playbook playbooks/setup_security.yml -i $INV
+```
+
+> Point at `EXISTS ROLE TRAINING_APP` and `EXISTS SERVICE %Service_WebGateway`.
+> Roles reference `%DB_*` resources created in `setup_databases.yml`.
+
+**Real sync** (export on primary, import on backup):
+
+```bash
+ansible-playbook playbooks/sync_security.yml -i $INV \
+  -e security_sync_enabled=true \
+  -e security_sync_dry_run=false
+```
+
+> Highlight `SECURITY_SYNC_JSON` and `roles_imported` / `users_imported`.
+> XML and invoke scripts are removed after the run (`no_log` on file transfer).
+
+**Validate** (read-only, both nodes):
+
+```bash
+ansible-playbook playbooks/validate_security_sync.yml -i $INV \
+  -e security_sync_enabled=true
+```
+
+**Portal** (use `.csp`, not `.cs`):
+
+- Primary: http://localhost:8081/csp/sys/UtilHome.csp → Security → Roles → `TRAINING_APP`
+- Backup: http://localhost:8082/csp/sys/UtilHome.csp → same check on `irisb`
+
+**Optional E2E delta** (creates `sync_test_user` on primary, syncs to backup):
+
+```bash
+ansible-playbook playbooks/sync_security.yml -i $INV \
+  -e security_sync_enabled=true \
+  -e security_sync_dry_run=false \
+  -e security_sync_create_test_delta=true \
+  -e 'security_sync_required_users=["sync_test_user"]'
+```
+
+**Talking points:**
+
+- Three layers: DB resources → bootstrap on all nodes → primary→backup sync.
+- CPF cannot enable services (`ERROR #415`); ObjectScript uses `Security.Services`.
+- Secrets never in git; sync XML has hashes only; vault + `no_log` for passwords.
+
+---
+
 ## Talking points / Q&A
 
 - **Idempotency**: CPF merge converges; ObjectScript is guarded by
   `...Exists()`.
 - **Portability**: switch `-i inventories/dev|sit|uat` - same playbooks.
 - **CPF vs ObjectScript**: CPF for databases/namespace/mapping;
-  ObjectScript only for web apps, roles, password, validation.
+  ObjectScript for web apps, roles, services, password, security sync.
+- **IRISSECURITY gap**: mirror does not copy roles/users — see
+  [security-overview.md](security-overview.md).
 - **Failure handling**: see `docs/failure-modes.md` (fix + re-run,
   `--limit <host>`).

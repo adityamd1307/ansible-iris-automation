@@ -1,6 +1,11 @@
 ---
-# Mirror setup order (meeting M3): primary creates the mirror set, backup
-# joins, then primary registers the backup as a failover member.
+# =====================================================================
+# Mirror setup: primary create → backup join → primary add-failover
+# =====================================================================
+# Order matters. configure.yml runs this twice (before/after production import).
+#
+# Run: ansible-playbook playbooks/setup_mirror.yml -i inventories/poc
+# See docs/mirror-overview.md
 - name: Configure mirror primary (create mirror set and databases)
   hosts: iris_primary
   become: false

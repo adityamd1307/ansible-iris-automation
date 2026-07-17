@@ -12,7 +12,11 @@
 # Dry-run import only:
 #   ansible-playbook playbooks/sync_security.yml -i inventories/poc \
 #     -e security_sync_enabled=true -e security_sync_dry_run=true
+#
+# Gated by mirror_enabled AND security_sync_enabled (inventory or -e).
+# See docs/security-overview.md for Portal checks and troubleshooting.
 - name: Install SecuritySync module on all nodes
+  # Compile SecuritySync.* into %SYS before any export/import/validate action.
   hosts: iris_nodes
   become: false
   gather_facts: false
@@ -24,6 +28,8 @@
       when: (mirror_enabled | default(false) | bool) and (security_sync_enabled | default(false) | bool)
 
 - name: Export security from primary
+  # Export roles/users XML on primary; optional E2E delta; fetch XML to control node.
+  # XML contains password hashes — fetch tasks use no_log; paths deleted in cleanup play.
   hosts: iris_primary
   become: false
   gather_facts: false
@@ -42,6 +48,8 @@
       when: (mirror_enabled | default(false) | bool) and (security_sync_enabled | default(false) | bool)
 
     - name: Create E2E test delta on primary (optional)
+      # Creates SYNC_TEST_ROLE + sync_test_user and bumps TRAINING_APP description
+      # so a demo can prove backup received primary-only changes before export.
       when:
         - (mirror_enabled | default(false) | bool) and (security_sync_enabled | default(false) | bool)
         - security_sync_create_test_delta | default(false) | bool
@@ -125,6 +133,7 @@
       when: (mirror_enabled | default(false) | bool) and (security_sync_enabled | default(false) | bool)
 
     - name: Fetch roles XML from primary to control node
+      # Staging on control node bridges docker/direct exec modes on backup import.
       ansible.builtin.include_role:
         name: iris_common
         tasks_from: fetch_file
@@ -145,6 +154,8 @@
       when: (mirror_enabled | default(false) | bool) and (security_sync_enabled | default(false) | bool)
 
 - name: Import security on backup
+  # Copy staged XML into backup, then dry-run (Flags=1) or real import (Flags=0).
+  # security_sync_dry_run defaults true in group_vars unless overridden at CLI.
   hosts: iris_backup
   become: false
   gather_facts: false
@@ -202,6 +213,7 @@
         - iris_exec_mode == 'direct'
 
     - name: Dry-run import on backup
+      # Validates XML and reports counts without mutating IRISSECURITY on backup.
       when:
         - security_sync_gate | bool
         - security_sync_dry_run | default(true) | bool
@@ -247,6 +259,7 @@
             fail_msg: "Security dry-run import failed on backup."
 
     - name: Real import on backup
+      # Applies primary export to backup; post-import Validator runs inside Service.
       when:
         - security_sync_gate | bool
         - not (security_sync_dry_run | default(true) | bool)
@@ -304,6 +317,7 @@
           when: write_evidence | default(false) | bool
 
 - name: Cleanup security sync artifacts
+  # Delete XML and invoke scripts on nodes and control node — sensitive export files must not linger.
   hosts: iris_nodes
   become: false
   gather_facts: false
@@ -351,6 +365,7 @@
       when: security_sync_gate | bool
 
 - name: Cleanup control-node staged security XML
+  # Remove primary-export copies from stage_dir after backup import completes.
   hosts: localhost
   connection: local
   gather_facts: false

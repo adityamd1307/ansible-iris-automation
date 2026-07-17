@@ -1,4 +1,8 @@
 ---
+# Bootstrap security on this node: services, application roles, optional
+# admin password rotation. Rendered script is always deleted afterward so
+# a vault password never lingers on disk (see docs/secrets-and-security.md).
+
 - name: Load encrypted secrets (only when rotating the admin password)
   ansible.builtin.include_vars: "{{ playbook_dir }}/../group_vars/vault.yml"
   when: rotate_admin_password | bool
@@ -20,6 +24,7 @@
   vars:
     remote_path: "/tmp/setup_security.cos"
     session_label: "security"
+    # Suppress session stdout when password is in the rendered script.
     session_no_log: "{{ rotate_admin_password | bool }}"
     session_changed_when: "'CREATED' in (session_result.stdout | default('')) or 'CHANGED' in (session_result.stdout | default('')) or 'PWROTATE' in (session_result.stdout | default(''))"
 

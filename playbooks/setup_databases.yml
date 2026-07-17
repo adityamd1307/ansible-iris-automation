@@ -1,4 +1,12 @@
 ---
+# =====================================================================
+# Physical IRIS databases + %DB_* security resources (Layer 1)
+# =====================================================================
+# CPF merge registers definitions; guarded ObjectScript creates IRIS.DAT
+# and Security.Resources. Must run before namespace and security roles.
+#
+# Run: ansible-playbook playbooks/setup_databases.yml -i inventories/poc
+# See docs/databases-overview.md
 - name: Ensure IRIS physical databases exist
   hosts: iris_nodes
   gather_facts: false

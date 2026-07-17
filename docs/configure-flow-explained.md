@@ -3,6 +3,8 @@
 This document explains every file used by `playbooks/configure.yml` and
 how the code fits together.
 
+**See also:** [docs/README.md](README.md) for per-topic guides (infra, databases, mirror, production, security, routing, validation).
+
 The short version:
 
 ```bash
@@ -15,6 +17,7 @@ That single command converges the IRIS nodes to the desired state:
 - `TRAINING` namespace exists
 - `/csp/training` web application exists
 - security service and role exist
+- security sync aligns backup roles/users with primary (IRISSECURITY not mirrored)
 - mirror `TRAININGMIRROR` exists
 - `irisa` is primary
 - `irisb` is backup
@@ -29,8 +32,8 @@ The file:
 # Full Topic-1 configuration flow (order matters)
 # =====================================================================
 # databases -> namespace/mappings -> web app -> security -> production
-# auto-start -> validation. Every step is idempotent, so this whole
-# playbook is safe to re-run.
+# import + autostart -> mirror finalize -> validation -> security sync
+# Every step is idempotent, so this whole playbook is safe to re-run.
 #
 # Run against an environment inventory, e.g.:
 #   ansible-playbook playbooks/configure.yml -i inventories/poc
@@ -39,32 +42,39 @@ The file:
 #   ansible-playbook playbooks/configure.yml -i inventories/poc \
 #     -e rotate_admin_password=true --ask-vault-pass
 - import_playbook: setup_databases.yml
+- import_playbook: setup_mirror.yml
 - import_playbook: create_namespace.yml
 - import_playbook: setup_webapp.yml
 - import_playbook: setup_security.yml
-- import_playbook: setup_production.yml
+- import_playbook: setup_production_import.yml
 - import_playbook: setup_mirror.yml
+- import_playbook: setup_production_autostart.yml
 - import_playbook: validate_nodes.yml
 - import_playbook: validate_mirror.yml
+- import_playbook: sync_security.yml
 ```
 
 What each line means:
 
 | Line | Meaning |
 | --- | --- |
-| `import_playbook: setup_databases.yml` | Creates/registers physical IRIS databases. |
+| `import_playbook: setup_databases.yml` | CPF merge + guarded ObjectScript: physical DBs and `%DB_*` resources. |
+| `import_playbook: setup_mirror.yml` (1st) | Primary mirror create; backup may not exist yet — idempotent partial setup. |
 | `import_playbook: create_namespace.yml` | Creates the namespace and maps globals/routines to those databases. |
 | `import_playbook: setup_webapp.yml` | Creates or updates CSP/web application definitions. |
-| `import_playbook: setup_security.yml` | Enables services, creates roles, optionally rotates `_SYSTEM` password. |
-| `import_playbook: setup_production.yml` | Attempts interop production auto-start setup when supported. |
-| `import_playbook: setup_mirror.yml` | Builds/checks the primary/backup mirror. |
+| `import_playbook: setup_security.yml` | Enables services, creates roles on **all nodes**; optional vault password rotation. |
+| `import_playbook: setup_production_import.yml` | Imports interop production classes on **primary only**. |
+| `import_playbook: setup_mirror.yml` (2nd) | Finalizes backup join and failover membership after app objects exist. |
+| `import_playbook: setup_production_autostart.yml` | Configures production auto-start on all nodes. |
 | `import_playbook: validate_nodes.yml` | Verifies namespace, databases, web app, and production status. |
 | `import_playbook: validate_mirror.yml` | Verifies mirror membership and exact primary/backup roles. |
+| `import_playbook: sync_security.yml` | Exports roles/users from primary, imports on backup (IRISSECURITY gap). See [security-overview.md](security-overview.md). |
 
-The order matters. If the namespace is created before the databases, it
-can point to missing database definitions. If mirror setup runs before
-the databases exist, there is nothing useful to mirror. The final two
-playbooks are read-only validation.
+The order matters. Database resources must exist before roles reference them.
+Mirror should be up before sync. The last three playbooks are validation/sync;
+sync is gated by `security_sync_enabled` and `mirror_enabled` in inventory.
+
+**Security deep-dive:** [security-overview.md](security-overview.md)
 
 ## 2. Inventory And Desired State
 
@@ -452,6 +462,14 @@ ANSIBLE_CONFIG=ansible.cfg ansible-playbook playbooks/configure.yml -i inventori
 
 When rotation is enabled, sensitive output is suppressed with `no_log`.
 
+**Why CPF is not used for services:** a configuration merge has no services
+section in this IRIS version (`ERROR #415`). Service enablement uses guarded
+`Security.Services` ObjectScript instead. See `docs/mechanism-mapping.md`.
+
+**Mirror note:** bootstrap runs on **both** nodes so each has roles and
+services locally. IRISSECURITY is still **not** mirrored — use
+`sync_security.yml` (Step 9) to align backup with primary after changes.
+
 ## 8. Step 5: `setup_production.yml`
 
 File:
@@ -677,7 +695,87 @@ Mirror readiness OK on irisa (role: primary).
 Mirror readiness OK on irisb (role: backup).
 ```
 
-## 12. CPF Templates
+## 12. Step 9: Security sync — `sync_security.yml`
+
+File:
+
+```text
+playbooks/sync_security.yml
+```
+
+Purpose:
+
+Close the IRISSECURITY mirror gap by exporting roles and users from the
+primary and importing them on the backup via official `Security.*` APIs.
+This is the **last** step in `configure.yml` (after mirror validation).
+
+See **[security-overview.md](security-overview.md)** for commands, Portal
+checks, and troubleshooting.
+
+Play blocks (in order):
+
+| Play | Hosts | What it does |
+| ---- | ----- | ------------ |
+| Install SecuritySync module | `iris_nodes` | Stage/compile `objectscript/security_sync/*.cls` |
+| Export security from primary | `iris_primary` | Optional E2E test delta; export XML; fetch to control node |
+| Import security on backup | `iris_backup` | Copy XML in; dry-run or real import |
+| Cleanup artifacts | all + localhost | Remove XML and invoke scripts (`no_log` paths) |
+
+Thin invoke script (one action per run):
+
+```text
+objectscript/invoke_security_sync.cos.j2
+```
+
+Actions: `export`, `import`, `dry_run_import`, `validate`, `create_test_delta`.
+
+ObjectScript module:
+
+```text
+objectscript/security_sync/
+  SecuritySync.Service.cls    # Ansible entry points; emits SECURITY_SYNC_JSON
+  SecuritySync.Exporter.cls   # Security.Roles/Users Export
+  SecuritySync.Importer.cls   # Security.Roles/Users Import (Flags=0 or 1)
+  SecuritySync.Validator.cls  # File checks + required role/user lists
+  SecuritySync.Config.cls     # Paths, SQL privileges, required lists
+  SecuritySync.Result.cls     # JSON payload fields for playbooks
+```
+
+Expected output (real import):
+
+```text
+SECURITY_SYNC_JSON:{"ok":true,"step":"import_complete","roles_imported":12,...}
+```
+
+Playbook asserts `roles_imported > 0` and `users_imported > 0`.
+
+Standalone run:
+
+```bash
+ansible-playbook playbooks/sync_security.yml -i inventories/poc \
+  -e security_sync_enabled=true -e security_sync_dry_run=false
+```
+
+Post-sync validation:
+
+```bash
+ansible-playbook playbooks/validate_security_sync.yml -i inventories/poc \
+  -e security_sync_enabled=true
+```
+
+Inventory knobs (`inventories/poc/group_vars/all.yml`):
+
+```yaml
+security_sync_enabled: true
+security_sync_dry_run: false
+security_sync_required_roles:
+  - TRAINING_APP
+```
+
+Portal (backup after sync): http://localhost:8082/csp/sys/UtilHome.csp →
+System Administration → Security → Roles — confirm `TRAINING_APP` matches primary.
+
+## 13. CPF Templates
 
 ### `cpf/database-template.cpf.j2`
 
@@ -713,20 +811,22 @@ Used by:
 create_namespace.yml
 ```
 
-## 13. ObjectScript Templates
+## 14. ObjectScript Templates
 
 | File | Used by | Purpose |
 | --- | --- | --- |
 | `objectscript/create_databases.cos.j2` | `setup_databases.yml` | Creates physical database files and DB resources. |
 | `objectscript/setup_webapp.cos.j2` | `setup_webapp.yml` | Creates/updates `/csp/training`. |
 | `objectscript/setup_security.cos.j2` | `setup_security.yml` | Enables services, creates roles, optionally rotates password. |
+| `objectscript/invoke_security_sync.cos.j2` | `sync_security.yml`, `validate_security_sync.yml` | Dispatches SecuritySync.Service actions. |
+| `objectscript/security_sync/*.cls` | `install_security_sync` | Export/import/validate module. |
 | `objectscript/setup_production.cos.j2` | `setup_production.yml` | Configures interop production auto-start when supported. |
 | `objectscript/setup_mirror_primary.cos.j2` | `setup_mirror.yml` | Configures primary mirror side on `irisa`. |
 | `objectscript/setup_mirror_backup.cos.j2` | `setup_mirror.yml` | Configures backup mirror side on `irisb`. |
 | `objectscript/validate_readiness.cos.j2` | `validate_nodes.yml` | Emits node readiness JSON. |
 | `objectscript/validate_mirror.cos.j2` | `validate_mirror.yml` | Emits mirror role/status JSON. |
 
-## 14. Why The Flow Is Idempotent
+## 15. Why The Flow Is Idempotent
 
 The playbooks are safe to re-run because they check before changing:
 
@@ -747,7 +847,7 @@ EXISTS DATABASE TRAININGDATA
 
 Those are good signs on repeat runs.
 
-## 15. How To Explain The Run Output
+## 16. How To Explain The Run Output
 
 Common Ansible words:
 
@@ -786,7 +886,7 @@ SKIP interop-not-enabled-or-missing-class: <CLASS DOES NOT EXIST> Ens.Director
 This only means interop production auto-start was skipped. It does not
 mean namespace, databases, or mirror setup failed.
 
-## 16. Management Portal Verification Map
+## 17. Management Portal Verification Map
 
 Use direct gateways:
 
@@ -819,6 +919,17 @@ Verify mirror:
 System Administration > Configuration > Mirror Settings
 ```
 
+Verify security (bootstrap + after sync):
+
+```text
+System Administration > Security > Roles        # TRAINING_APP on both nodes
+System Administration > Security > Resources  # %DB_TRAININGDATA, %DB_TRAININGCODE
+System Administration > Security > Services   # %Service_WebGateway enabled
+System Administration > Security > Users      # after E2E delta: sync_test_user on backup
+```
+
+Details: [security-overview.md](security-overview.md#management-portal-verification).
+
 Expected:
 
 ```text
@@ -829,7 +940,7 @@ Members: IRISA and IRISB
 Member type: Failover
 ```
 
-## 17. Replication Test
+## 18. Replication Test
 
 After `configure.yml` completes, create a new table on `irisa`:
 
@@ -864,7 +975,7 @@ If an old table does not appear on `irisb`, recreate it after
 `configure.yml` completes. Tables created before the backup databases
 were active mirrored copies may not replay onto the backup.
 
-## 18. File Map For Demo Explanation
+## 19. File Map For Demo Explanation
 
 | Area | Files |
 | --- | --- |
@@ -875,6 +986,7 @@ were active mirrored copies may not replay onto the backup.
 | Namespace setup | `playbooks/create_namespace.yml`, `cpf/namespace-template.cpf.j2` |
 | Web app setup | `playbooks/setup_webapp.yml`, `objectscript/setup_webapp.cos.j2` |
 | Security setup | `playbooks/setup_security.yml`, `objectscript/setup_security.cos.j2` |
+| Security sync | `playbooks/sync_security.yml`, `playbooks/validate_security_sync.yml`, `objectscript/security_sync/` |
 | Production setup | `playbooks/setup_production.yml`, `objectscript/setup_production.cos.j2` |
 | Mirror setup | `playbooks/setup_mirror.yml`, `objectscript/setup_mirror_primary.cos.j2`, `objectscript/setup_mirror_backup.cos.j2` |
 | Node validation | `playbooks/validate_nodes.yml`, `objectscript/validate_readiness.cos.j2` |

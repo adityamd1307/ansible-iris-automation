@@ -1,4 +1,12 @@
 ---
+# =====================================================================
+# Read-only node readiness validation (namespace, DBs, web app, production)
+# =====================================================================
+# Emits READINESS_JSON per node. Never mutates IRIS.
+#
+# Run: ansible-playbook playbooks/validate_nodes.yml -i inventories/poc
+# Optional: -e write_evidence=true
+# See docs/validation-overview.md
 - name: Validate IRIS node readiness
   hosts: iris_nodes
   become: false

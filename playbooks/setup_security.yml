@@ -1,4 +1,19 @@
 ---
+# =====================================================================
+# Bootstrap IRIS security on every node (services + roles + optional PW)
+# =====================================================================
+# Runs guarded ObjectScript via roles/iris_security on iris_nodes.
+# Must run AFTER setup_databases.yml — roles reference %DB_* resources
+# created there. Does NOT replace sync_security.yml: IRISSECURITY is not
+# mirrored, so primary→backup role/user alignment is a separate step.
+#
+# Typical: imported by configure.yml, or standalone:
+#   ansible-playbook playbooks/setup_security.yml -i inventories/poc
+#
+# Optional vault password rotation (no_log on session + script cleanup):
+#   -e rotate_admin_password=true --ask-vault-pass
+#
+# See docs/security-overview.md (Layer 2 — bootstrap).
 - name: Configure IRIS security
   hosts: iris_nodes
   become: false

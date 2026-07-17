@@ -2,6 +2,8 @@
 
 Local Docker + Ansible automation for an InterSystems IRIS mirror lab.
 
+**Full documentation index:** [docs/README.md](docs/README.md)
+
 The desired steady state is:
 
 - `irisa` = mirror primary
@@ -25,7 +27,40 @@ roles/
 inventories/
 objectscript/
 cpf/
+docs/
 ```
+
+## Security (mirror gap)
+
+IRIS mirroring replicates **data databases**, not **IRISSECURITY**. This
+repo applies security in three layers: `%DB_*` resources during database
+setup, bootstrap roles/services on every node (`setup_security.yml`), then
+primary→backup sync (`sync_security.yml`).
+
+**Guide:** [docs/security-overview.md](docs/security-overview.md)
+
+## Topic documentation
+
+| Area | Guide |
+| ---- | ----- |
+| Infrastructure & Docker | [docs/infra-overview.md](docs/infra-overview.md) |
+| Databases | [docs/databases-overview.md](docs/databases-overview.md) |
+| Namespace | [docs/namespace-overview.md](docs/namespace-overview.md) |
+| Web applications | [docs/webapp-overview.md](docs/webapp-overview.md) |
+| Security & sync | [docs/security-overview.md](docs/security-overview.md) |
+| Mirror | [docs/mirror-overview.md](docs/mirror-overview.md) |
+| Production | [docs/production-overview.md](docs/production-overview.md) |
+| HAProxy routing | [docs/routing-overview.md](docs/routing-overview.md) |
+| Validation | [docs/validation-overview.md](docs/validation-overview.md) |
+
+Quick sync after configure:
+
+```bash
+ansible-playbook playbooks/sync_security.yml -i inventories/poc \
+  -e security_sync_enabled=true -e security_sync_dry_run=false
+```
+
+Portal URLs must use **`.csp`** (e.g. `http://localhost:8081/csp/sys/UtilHome.csp`).
 
 ## Prerequisites
 

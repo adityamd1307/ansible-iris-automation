@@ -63,15 +63,20 @@ web_apps:
 # ---------------------------------------------------------------------
 # Security: application roles + resources (created via guarded ObjectScript)
 # ---------------------------------------------------------------------
+# Layer 2 bootstrap — applied on EVERY node by setup_security.yml.
+# Roles reference %DB_* resources from setup_databases.yml (Layer 1).
+# IRISSECURITY is NOT mirrored; use security_sync_* below for Layer 3.
+# See docs/security-overview.md
 security_roles:
   - name: TRAINING_APP
     description: "Application role for the TRAINING namespace"
+    # Colon-separated resource:permission pairs (%DB_<globals>:RW, ...)
     resources: "%DB_{{ globals_db }}:RW,%DB_{{ routines_db }}:RW"
 
-# IRIS services to enable/leave enabled for the POC. Applied via guarded
-# Security.Services ObjectScript (not CPF - a merge has no services
-# section). %Service_WebGateway is the CSP/web service in modern IRIS
-# (the legacy %Service_CSP no longer exists). Unknown services are skipped.
+# Services to enable for web/CSP access. NOT applied via CPF merge — IRIS
+# rejects a [Services] section (ERROR #415). Guarded Security.Services in
+# setup_security.cos.j2. %Service_WebGateway is the modern CSP service; legacy
+# %Service_CSP is skipped if absent (SKIP SERVICE ... not-present).
 security_services:
   - name: "%Service_WebGateway"
     enabled: true
@@ -130,10 +135,16 @@ mirror_databases:
   - "{{ routines_db }}"
 
 # ---------------------------------------------------------------------
-# Security sync (primary → backup via Security.* Export/Import)
+# Security sync (primary → backup via Security.* Export/Import) — Layer 3
 # ---------------------------------------------------------------------
-# IRISSECURITY is not mirrored; sync roles/users after bootstrap.
-# Enable explicitly: -e security_sync_enabled=true
+# Closes the IRISSECURITY mirror gap: export roles/users on primary, import
+# on backup. Requires mirror_enabled. Playbook: sync_security.yml
+# Guide: docs/security-overview.md
+#
+# security_sync_enabled: master gate (playbook no-ops when false)
+# security_sync_dry_run: true = Import Flags=1 on backup only (no mutate)
+# security_sync_*_path: XML locations on IRIS nodes (deleted after run)
+# security_sync_required_*: asserted after import/validate (comma list in ObjectScript)
 security_sync_enabled: true
 security_sync_dry_run: false
 security_sync_roles_path: /tmp/iris_security_roles.xml

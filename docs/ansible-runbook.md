@@ -3,6 +3,8 @@
 This runbook lets another engineer **set up, run, verify, troubleshoot,
 and extend** the InterSystems IRIS automation POC without prior context.
 
+**Documentation index (all topics):** [docs/README.md](README.md)
+
 ---
 
 ## 1. What this POC does
@@ -26,6 +28,8 @@ node to a declarative desired state:
 
 See `docs/mechanism-mapping.md` for the full per-item mechanism table
 (CPF vs ObjectScript vs REST) and `architecture/` for the diagram.
+
+**Per-topic guides:** [docs/README.md](README.md) (databases, namespace, mirror, production, routing, security, validation).
 
 Everything is **idempotent** (safe to re-run) and **parameterized** per
 environment. No secrets are committed.
@@ -73,14 +77,11 @@ objectscript/
   install_security_sync.cos.j2      Load/compile SecuritySync classes into %SYS
 architecture/                       Mermaid architecture diagram (export to PNG)
 playbooks/
-  site.yml                          Infra bring-up + full configure (end to end)
-  prepare.yml stack_up.yml stack_down.yml verify.yml   Infra lifecycle
-  configure.yml                     databases -> namespace -> webapp -> security -> production -> validate
-  setup_databases.yml create_namespace.yml setup_webapp.yml setup_security.yml setup_production.yml
-  validate_nodes.yml validate_mirror.yml test_routing.yml
-  sync_security.yml validate_security_sync.yml   Primary → backup security sync
-  tasks/                            Reusable helpers (push_file, fetch_file, iris_merge, iris_session, install_security_sync)
-docs/                               Runbook + mechanism-mapping + failure-modes + secrets + demo-script
+  configure.yml                     Full Topic-1 configure flow (see docs/README.md)
+  setup_*.yml validate_*.yml        Per-area playbooks (each has a topic guide in docs/)
+  sync_security.yml                 Primary → backup security sync
+  test_routing.yml update_haproxy_primary.yml   HAProxy routing
+docs/                               Index + topic guides + runbook + mechanism-mapping
 evidence/                           Placeholder for captured run output (git-ignored contents)
 ```
 
@@ -88,35 +89,31 @@ evidence/                           Placeholder for captured run output (git-ign
 
 ## 4. First run (POC)
 
+See [infra-overview.md](infra-overview.md) for Docker topology details.
+
 From the repository root:
 
 ```bash
-# 1. Bring up infra and configure IRIS in one shot
-ansible-playbook playbooks/site.yml -i inventories/poc \
-  -e iris_key_source=/secure/path/to/iris.key
+# 1. Stage license (never commit iris.key)
+cp /secure/path/iris.key iris-env/IRISSystemManagement/irisa/iris.key
+cp /secure/path/iris.key iris-env/IRISSystemManagement/irisb/iris.key
 
-# If your image does not need a key:
-ansible-playbook playbooks/site.yml -i inventories/poc -e require_iris_key=false
-```
+# 2. Start Docker stack
+cd iris-env/IRISSystemManagement && docker compose up -d --pull missing
 
-Step-by-step equivalent (useful when debugging a single stage):
-
-```bash
-ansible-playbook playbooks/prepare.yml   -i inventories/poc -e iris_key_source=/path/iris.key
-ansible-playbook playbooks/stack_up.yml  -i inventories/poc
-ansible-playbook playbooks/verify.yml    -i inventories/poc
+# 3. Configure IRIS (from repo root)
+cd /Users/aryand/Desktop/ansible-iris-automation
 ansible-playbook playbooks/configure.yml -i inventories/poc
 ```
 
-`configure.yml` on its own runs: databases -> namespace -> web app ->
-security -> production -> mirror -> node validation -> mirror validation.
+`configure.yml` runs the full ordered flow (databases → mirror → namespace →
+web app → security → production import → mirror finalize → autostart →
+validate → security sync). See [configure-flow-explained.md](configure-flow-explained.md).
 
 For full Topic 1 green (interop + production), use a licensed
-`intersystems/iris:latest-cd` image — see `docs/licensed-image-setup.md`.
-`prepare.yml` seeds Web Gateway CSP config (port 1972, `CSPSystem`) and
-removes stale `webgateway*/durable` so `:8081`/`:8082` serve IRIS on
-first boot. If a license path contains spaces, use a symlink or JSON
-`-e '{"iris_key_source": "/path/with spaces/key"}'`.
+`intersystems/iris:latest-cd` image — see [licensed-image-setup.md](licensed-image-setup.md).
+
+Portal URLs use **`.csp`**: `http://localhost:8081/csp/sys/UtilHome.csp`
 
 ---
 
@@ -144,8 +141,33 @@ ansible-playbook playbooks/validate_nodes.yml -i inventories/poc -e write_eviden
 
 ## 5b. Security sync (primary → backup)
 
+> **Overview:** [security-overview.md](security-overview.md) — problem, three
+> layers (DB resources → bootstrap → sync), Portal checks, troubleshooting.
+
 After both nodes are configured and mirroring is enabled, sync roles and
-users from primary to backup (IRISSECURITY is **not** mirrored):
+users from primary to backup (IRISSECURITY is **not** mirrored).
+
+`configure.yml` imports `sync_security.yml` as its **last** step (after mirror
+validation). You can also run sync standalone when primary-side security
+changes.
+
+Playbook phases in `sync_security.yml`:
+
+1. **Install** — load/compile `SecuritySync.*` on all nodes (`install_security_sync`)
+2. **Export** — optional E2E test delta on primary; `Security.Roles/Users`.Export → XML
+3. **Transfer** — fetch XML to control node, copy into backup (`no_log`)
+4. **Import** — dry-run (`Flags=1`) or real import on backup
+5. **Cleanup** — delete XML and invoke scripts on nodes and control node
+
+Bootstrap (both nodes, before sync): `setup_security.yml` — see
+[secrets-and-security.md](secrets-and-security.md#when-to-run-what-security-operations).
+
+```bash
+# Baseline security on all nodes (if not already run via configure.yml)
+ansible-playbook playbooks/setup_security.yml -i inventories/poc
+```
+
+Sync commands:
 
 ```bash
 # Real import (post-bootstrap or after primary-side security changes)
@@ -177,6 +199,18 @@ ansible-playbook playbooks/sync_security.yml -i inventories/poc \
 Exported XML contains password hashes, not plaintext — treat as sensitive.
 Playbooks use `no_log` and delete XML/invoke scripts after each run.
 
+**Expected markers:** `SECURITY_SYNC_JSON` with `"ok": true`; import shows
+`roles_imported` and `users_imported` > 0; Ansible recap `failed=0`.
+Bootstrap re-runs show `EXISTS ROLE` (not `CREATED`).
+
+**Portal verification** (`.csp` URLs):
+
+- Primary: http://localhost:8081/csp/sys/UtilHome.csp
+- Backup: http://localhost:8082/csp/sys/UtilHome.csp
+
+Check System Administration → Security → Roles, Resources, Services, Users
+on both nodes after sync.
+
 ---
 
 ## 6. Idempotency
@@ -198,7 +232,8 @@ Prove it: run `configure.yml` twice; the second run should report no
 
 ## 7. Secrets
 
-See `docs/secrets-and-security.md`. In short:
+See [docs/secrets-and-security.md](secrets-and-security.md) and
+[docs/security-overview.md](security-overview.md). In short:
 
 - License key: pass `-e iris_key_source=...`; it is copied with
   `no_log` and is git-ignored.

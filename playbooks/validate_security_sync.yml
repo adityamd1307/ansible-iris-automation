@@ -2,9 +2,18 @@
 # =====================================================================
 # Post-sync security validation (read-only)
 # =====================================================================
-# Verifies required roles/users exist and reports counts via JSON.
+# Installs SecuritySync if needed, runs ValidatePostImport on each node,
+# and asserts SECURITY_SYNC_JSON ok + counts. Does not export/import.
 #
-# Run: ansible-playbook playbooks/validate_security_sync.yml -i inventories/poc
+# Requires security_sync_enabled=true (inventory or -e). Exits immediately
+# when sync is disabled so configure.yml can import this playbook safely.
+#
+# Run:
+#   ansible-playbook playbooks/validate_security_sync.yml -i inventories/poc \
+#     -e security_sync_enabled=true
+#
+# Optional evidence: -e write_evidence=true
+# See docs/security-overview.md
 - name: Validate IRIS security sync state
   hosts: iris_nodes
   become: false
@@ -15,6 +24,7 @@
     write_evidence: false
 
   tasks:
+    # No-op when sync feature is off — avoids false failures during partial demos.
     - name: Skip validation when security sync disabled
       ansible.builtin.meta: end_play
       when: not (security_sync_enabled | default(false) | bool)
@@ -70,6 +80,7 @@
       delegate_to: localhost
       when: write_evidence | bool
 
+    # Remove invoke script only — validate does not create XML artifacts.
     - name: Remove validate invoke script from container (docker)
       ansible.builtin.command:
         argv:

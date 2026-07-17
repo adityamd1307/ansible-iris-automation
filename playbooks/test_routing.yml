@@ -1,4 +1,11 @@
 ---
+# =====================================================================
+# HAProxy routing smoke test (:8080 → active primary Web Gateway → IRIS)
+# =====================================================================
+# Imports update_haproxy_primary.yml first, then GET UtilHome.csp.
+#
+# Run: ansible-playbook playbooks/test_routing.yml -i inventories/poc
+# See docs/routing-overview.md
 - import_playbook: update_haproxy_primary.yml
 
 - name: Test HAProxy to IRIS Application Routing

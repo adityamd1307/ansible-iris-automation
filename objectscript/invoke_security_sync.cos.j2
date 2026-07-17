@@ -1,8 +1,21 @@
 ; =====================================================================
 ; Thin invoke script for SecuritySync.Service (one statement per line)
 ; =====================================================================
-; Rendered by sync_security.yml / validate_security_sync.yml.
-; security_sync_action: export | import | dry_run_import | validate | create_test_delta
+; Rendered by sync_security.yml / validate_security_sync.yml via push_file.
+; Ansible sets security_sync_action per run; only one action executes.
+;
+; Actions (see SecuritySync.Service):
+;   export           — primary: Security.Roles/Users Export → XML paths in cfg
+;   import           — backup: real import (Flags=0), then post-import validate
+;   dry_run_import   — backup: Import with Flags=1 (count/validate only, no mutate)
+;   validate         — read-only: required roles/users + live counts → JSON
+;   create_test_delta — primary E2E: SYNC_TEST_ROLE, sync_test_user, bump TRAINING_APP
+;
+; Output: SecuritySync.Service always writes one line:
+;   SECURITY_SYNC_JSON:{...}
+; Playbooks select that line and parse with from_json (see mechanism-mapping.md).
+;
+; Config paths and required lists come from inventory security_sync_* vars.
 zn "%SYS"
 {% set roles_path = security_sync_roles_path | default('/tmp/iris_security_roles.xml') %}
 {% set users_path = security_sync_users_path | default('/tmp/iris_security_users.xml') %}

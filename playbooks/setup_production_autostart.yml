@@ -1,6 +1,12 @@
 ---
-# Configure production auto-start on the mirror primary after join (M9).
-# Auto-start is namespace-level; mirrored globals carry it to the backup.
+# =====================================================================
+# Production auto-start on mirror primary (Ens.Director)
+# =====================================================================
+# Namespace-level setting; journaled globals replicate auto-start to backup.
+# Run after setup_production_import.yml and mirror finalize.
+#
+# Run: ansible-playbook playbooks/setup_production_autostart.yml -i inventories/poc
+# See docs/production-overview.md
 - name: Configure production auto-start on mirror primary
   hosts: iris_primary
   become: false

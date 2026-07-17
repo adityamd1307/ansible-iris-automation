@@ -29,7 +29,8 @@ By the end of the demo, the audience should understand:
 - how to prove that new SQL changes on `irisa` replicate to `irisb`
 
 For a deeper file-by-file explanation of the code behind this demo, see
-`docs/configure-flow-explained.md`.
+[configure-flow-explained.md](configure-flow-explained.md) and the full
+[documentation index](README.md).
 
 ## 0. Pre-Demo Checklist - Before The Call
 

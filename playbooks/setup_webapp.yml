@@ -1,4 +1,11 @@
 ---
+# =====================================================================
+# CSP / web application definitions (guarded Security.Applications)
+# =====================================================================
+# Prerequisite: create_namespace.yml. Applied on all nodes.
+#
+# Run: ansible-playbook playbooks/setup_webapp.yml -i inventories/poc
+# See docs/webapp-overview.md
 - name: Configure IRIS web applications
   hosts: iris_nodes
   become: false

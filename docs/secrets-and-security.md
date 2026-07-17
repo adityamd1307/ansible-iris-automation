@@ -3,6 +3,48 @@
 This POC is designed so that **no secret is ever committed to git** and no
 credential is printed to logs or the console.
 
+For the full mirror security story (IRISSECURITY not mirrored, bootstrap vs
+sync, Portal checks, demo commands), see **[security-overview.md](security-overview.md)**.
+
+---
+
+## When to run what (security operations)
+
+| Goal | Playbook | Secrets involved? |
+| ---- | -------- | ------------------- |
+| Baseline services + roles on **every** node | `setup_security.yml` (part of `configure.yml`) | Only if `-e rotate_admin_password=true` (vault) |
+| Copy roles/users primary → backup after mirror | `sync_security.yml` | Export XML has **password hashes** — treated as sensitive (`no_log`, deleted after run) |
+| Read-only audit of roles/users counts | `validate_security_sync.yml` | No |
+
+Typical order: `setup_databases.yml` → `setup_security.yml` on all nodes →
+mirror up → `sync_security.yml` → optional `validate_security_sync.yml`.
+
+```mermaid
+sequenceDiagram
+  participant Inv as inventories/poc/group_vars
+  participant DB as setup_databases.yml
+  participant Boot as setup_security.yml
+  participant Pri as irisa (primary)
+  participant Ctrl as control node
+  participant Bak as irisb (backup)
+  participant Sync as sync_security.yml
+
+  Inv->>DB: databases + %DB_* resources
+  DB->>Pri: guarded create
+  DB->>Bak: guarded create
+  Inv->>Boot: security_roles, security_services
+  Boot->>Pri: EXISTS ROLE / CHANGED SERVICE
+  Boot->>Bak: same baseline on backup
+  Note over Pri,Bak: Mirror replicates data DBs only — not IRISSECURITY
+  Sync->>Pri: Security.Roles/Users Export → XML
+  Pri->>Ctrl: fetch XML (no_log)
+  Ctrl->>Bak: copy XML (no_log)
+  Sync->>Bak: Security.* Import
+  Sync->>Pri: cleanup XML + invoke script
+  Sync->>Bak: cleanup XML + invoke script
+  Sync->>Ctrl: cleanup staged XML
+```
+
 ---
 
 ## 1. What counts as a secret here

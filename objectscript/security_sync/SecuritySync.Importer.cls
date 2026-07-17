@@ -1,7 +1,9 @@
 /// Import roles then users via official Security.* Import APIs (fail fast).
+/// dryRun=1 → Import Flags=1 (validate/count only); dryRun=0 → real import on backup.
 Class SecuritySync.Importer Extends %RegisteredObject
 {
 
+/// Validates XML files exist, then imports roles then users. Sets RolesImported / UsersImported.
 ClassMethod Run(config As SecuritySync.Config, result As SecuritySync.Result, logger As SecuritySync.Logger, dryRun As %Boolean = 0) As %Status
 {
     Set result.DryRun = dryRun

@@ -1,7 +1,10 @@
 /// Export roles and users via official Security.* Export APIs (fail fast).
+/// Called from SecuritySync.Service.RunExport on the mirror primary only.
+/// Writes XML to config.RolesPath / UsersPath for Ansible fetch → backup import.
 Class SecuritySync.Exporter Extends %RegisteredObject
 {
 
+/// Export all roles then all users ("*" selector). Sets result.RolesExported / UsersExported.
 ClassMethod Run(config As SecuritySync.Config, result As SecuritySync.Result, logger As SecuritySync.Logger) As %Status
 {
     Set result.Step = "export"
