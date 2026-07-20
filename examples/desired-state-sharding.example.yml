@@ -1,0 +1,49 @@
+---
+# =====================================================================
+# Sample desired-state file (Topic 2, deliverable 5.2)
+# =====================================================================
+# Defines cluster namespace, master namespace, data nodes, shard keys,
+# and validation expectations. Live values for the POC inventory are in
+# inventories/sharding/group_vars/all.yml.
+#
+# NEVER put secrets here (license keys, passwords).
+
+# --- Target nodes (see inventories/sharding/hosts.yml) ----------------
+# Groups:
+#   shard_node1         -> node 1 (Initialize via %SYSTEM.Cluster)
+#   shard_data_nodes  -> additional data nodes (AttachAsDataNode)
+# Modern terms: data node / compute node — NOT shard master / shard server.
+
+# --- Cluster identity -------------------------------------------------
+cluster_name: SHARDPOC
+cluster_namespace: SHARDCLUSTER
+master_namespace: SHARDMASTER
+cluster_url: "IRIS://shard_data1:1972/SHARDCLUSTER"
+cluster_allowed_connections: "172.29.0.10;172.29.0.11;172.29.0.12"
+
+# --- ECP prerequisites (CPF merge before Cluster API) -----------------
+ecp_max_servers: 16
+ecp_max_server_conn: 16
+
+# --- Topology ---------------------------------------------------------
+sharding_data_node_count: 3
+sharding_mirrored: false
+sharding_compute_nodes: []   # stretch: AttachAsComputeNode targets
+
+# --- Demo sharded table (SQL SHARD KEY in cluster namespace) ----------
+sharded_schema: ShardDemo
+sharded_table: Patient
+sharded_table_shard_key: MRN
+
+sharded_demo_rows:
+  - mrn: MRN-1001
+    family_name: Alpha
+    given_name: One
+  - mrn: MRN-2002
+    family_name: Beta
+    given_name: Two
+
+# --- Gates & validation -----------------------------------------------
+sharding_hands_on_enabled: false   # true only after version-license-gate.md
+sharding_enforce_node_count: true
+sharding_enforce_demo_table: true

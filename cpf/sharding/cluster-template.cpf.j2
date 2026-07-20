@@ -1,0 +1,13 @@
+; =====================================================================
+; CPF MERGE TEMPLATE - ECP / cluster interconnect prerequisites
+; =====================================================================
+; Rendered before %SYSTEM.Cluster Initialize/Attach calls.
+; MaxServers and MaxServerConn live under [config] in iris.cpf (IRIS 2026.x).
+; Restart may be required if values change post-install (see IRIS docs).
+;
+; NOTE: [Services] is rejected (ERROR #415). Initialize()/Attach*()
+; enables ECP and sharding services automatically.
+
+[config]
+MaxServers={{ ecp_max_servers | default(16) }}
+MaxServerConn={{ ecp_max_server_conn | default(16) }}

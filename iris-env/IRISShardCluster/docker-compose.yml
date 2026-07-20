@@ -1,0 +1,75 @@
+# Topic 2 — non-mirrored sharded cluster (data nodes only)
+# Separate stack from iris-env/IRISSystemManagement (Topic 1 mirror POC).
+# Requires a sharding-enabled IRIS license on every data node.
+
+services:
+  shard_data1:
+    image: ${IRISTAG:?Set IRISTAG in .env}
+    pull_policy: missing
+    init: true
+    container_name: shard_data1
+    hostname: shard_data1
+    restart: unless-stopped
+    ports:
+      - "41773:1972"
+      - "42773:52773"
+    environment:
+      ISC_DATA_DIRECTORY: /iris-shared/durable
+    volumes:
+      - ./shard_data1:/iris-shared
+    command: --key /iris-shared/iris.key
+    cap_add:
+      - NET_ADMIN
+    networks:
+      shard_net:
+        ipv4_address: 172.29.0.10
+
+  shard_data2:
+    image: ${IRISTAG:?Set IRISTAG in .env}
+    pull_policy: missing
+    init: true
+    container_name: shard_data2
+    hostname: shard_data2
+    restart: unless-stopped
+    ports:
+      - "43773:1972"
+      - "44773:52773"
+    environment:
+      ISC_DATA_DIRECTORY: /iris-shared/durable
+    volumes:
+      - ./shard_data2:/iris-shared
+    command: --key /iris-shared/iris.key
+    cap_add:
+      - NET_ADMIN
+    networks:
+      shard_net:
+        ipv4_address: 172.29.0.11
+
+  shard_data3:
+    image: ${IRISTAG:?Set IRISTAG in .env}
+    pull_policy: missing
+    init: true
+    container_name: shard_data3
+    hostname: shard_data3
+    restart: unless-stopped
+    ports:
+      - "45773:1972"
+      - "46773:52773"
+    environment:
+      ISC_DATA_DIRECTORY: /iris-shared/durable
+    volumes:
+      - ./shard_data3:/iris-shared
+    command: --key /iris-shared/iris.key
+    cap_add:
+      - NET_ADMIN
+    networks:
+      shard_net:
+        ipv4_address: 172.29.0.12
+
+networks:
+  shard_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.29.0.0/16
+          gateway: 172.29.0.1

@@ -1,0 +1,14 @@
+---
+# =====================================================================
+# Topic 2 — full configure flow (non-mirrored data-node cluster)
+# =====================================================================
+# Order: cluster setup (node1 → data nodes) → demo sharded table → validate
+#
+# Prerequisites:
+#   - Docker stack up (playbooks/sharding/stack_up.yml or manual compose)
+#   - sharding_hands_on_enabled=true after license gate
+#
+# Run: ansible-playbook playbooks/sharding/configure_sharding.yml -i inventories/sharding
+- import_playbook: setup_sharding_cluster.yml
+- import_playbook: create_sharded_namespace.yml
+- import_playbook: validate_sharding.yml

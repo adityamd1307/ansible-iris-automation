@@ -1,0 +1,5 @@
+---
+- name: Include iris_common push_file
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: push_file

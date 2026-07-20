@@ -1,0 +1,5 @@
+; Read-only IsNodeReady probe -> NODE_READY:true|false
+zn "%SYS"
+set st=$SYSTEM.Cluster.IsNodeReady()
+if $System.Status.IsOK(st) { write "NODE_READY:true" } else { write "NODE_READY:false" }
+halt

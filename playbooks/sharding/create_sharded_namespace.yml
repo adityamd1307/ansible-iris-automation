@@ -1,0 +1,38 @@
+---
+# =====================================================================
+# Demo sharded namespace workload (SQL SHARD KEY table on node 1)
+# =====================================================================
+# Run after setup_sharding_cluster.yml
+- name: Create demo sharded table in cluster namespace
+  hosts: shard_data1
+  gather_facts: false
+
+  tasks:
+    - name: Assert sharding hands-on gate
+      ansible.builtin.assert:
+        that:
+          - sharding_hands_on_enabled | default(false) | bool
+        fail_msg: >-
+          Gated — set sharding_hands_on_enabled=true after
+          docs/sharding/version-license-gate.md.
+
+    - name: Stage and push demo sharded table script
+      ansible.builtin.include_role:
+        name: iris_sharding_common
+        tasks_from: push_file
+      vars:
+        src_template: "{{ playbook_dir }}/../../objectscript/sharding/create_sharded_demo.cos.j2"
+        staged_name: "create_sharded_demo.cos"
+        remote_path: "/tmp/create_sharded_demo.cos"
+
+    - name: Create demo sharded table and seed rows
+      ansible.builtin.include_role:
+        name: iris_sharding_common
+        tasks_from: iris_session
+      vars:
+        remote_path: "/tmp/create_sharded_demo.cos"
+        session_label: "sharded demo table"
+
+    - name: Show demo table output
+      ansible.builtin.debug:
+        msg: "{{ session_result.stdout_lines | default([]) }}"

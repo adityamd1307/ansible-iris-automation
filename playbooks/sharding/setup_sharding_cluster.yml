@@ -1,0 +1,12 @@
+---
+# =====================================================================
+# %SYSTEM.Cluster setup — Initialize node 1, Attach data nodes 2..N
+# =====================================================================
+# Run: ansible-playbook playbooks/sharding/setup_sharding_cluster.yml -i inventories/sharding
+- name: Configure sharded cluster data nodes
+  hosts: shard_nodes
+  gather_facts: false
+  serial: 1
+
+  roles:
+    - iris_sharding_data_node

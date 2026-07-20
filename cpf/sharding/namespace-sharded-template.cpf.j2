@@ -1,0 +1,14 @@
+; =====================================================================
+; CPF MERGE TEMPLATE - Optional cluster namespace interop flag
+; =====================================================================
+; %SYSTEM.Cluster.Initialize creates cluster + master namespaces when
+; absent. This template is a guarded pre-merge hook when you need to
+; ensure interoperability on an existing cluster namespace before demo
+; workloads. Most POC runs rely on Initialize() alone.
+
+[Actions]
+{% if cluster_namespace_interop | default(false) %}
+CreateNamespace:Name={{ cluster_namespace }},Globals={{ cluster_namespace | upper }}GLB,Routines={{ cluster_namespace | upper }}RTN,Interop=1
+{% else %}
+; no-op placeholder — cluster namespace is created by %SYSTEM.Cluster API
+{% endif %}

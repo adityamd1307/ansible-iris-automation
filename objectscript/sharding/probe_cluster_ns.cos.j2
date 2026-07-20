@@ -1,0 +1,4 @@
+; Read-only cluster namespace probe (single line output)
+zn "%SYS"
+write "CLUSTER_NS:",$SYSTEM.Cluster.ClusterNamespace()
+halt

@@ -431,3 +431,25 @@ docker compose up -d webgatewaya webgatewayb haproxy
 21882  irisb ISCAgent mirror port
 21883  arbiter
 ```
+
+## Topic 2 — Sharding (separate from mirror POC)
+
+Horizontal sharding uses its **own** Docker stack, inventory, and playbooks.
+Topic 1 `configure.yml` is unchanged.
+
+| Area | Guide |
+| ---- | ----- |
+| Sharding index + gate | [docs/sharding/README.md](docs/sharding/README.md) |
+| Architecture | [architecture/sharding-architecture.md](architecture/sharding-architecture.md) |
+| Operational runbook | [docs/sharding/operational-runbook.md](docs/sharding/operational-runbook.md) |
+
+Quick start (after [version-license-gate.md](docs/sharding/version-license-gate.md)):
+
+```bash
+ansible-playbook playbooks/sharding/site.yml -i inventories/sharding \
+  -e iris_key_source=/path/to/iris.key \
+  -e sharding_hands_on_enabled=true
+```
+
+Default inventory remains Topic 1 POC (`inventories/poc`). Always pass
+`-i inventories/sharding` for sharding work.

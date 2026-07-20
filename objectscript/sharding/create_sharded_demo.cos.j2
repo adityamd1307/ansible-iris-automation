@@ -1,0 +1,20 @@
+; Demo sharded table + seed rows (cluster namespace, node 1 only)
+; Every executable statement is on ONE line (iris session REPL constraint).
+zn "%SYS"
+set ns="{{ cluster_namespace }}"
+if ##class(%SYS.Namespace).Exists(ns)=0 { write !,"SHARD_NS_MISSING:",ns halt }
+zn ns
+set changed=0,action="SKIP"
+set sql="CREATE TABLE {{ sharded_schema }}.{{ sharded_table }} (ID BIGINT NOT NULL, MRN VARCHAR(50) NOT NULL, FamilyName VARCHAR(100), GivenName VARCHAR(100), SHARD KEY (MRN))"
+set stmt=##class(%SQL.Statement).%New()
+set st=stmt.%Prepare(sql)
+if $System.Status.IsOK(st) { set rs=stmt.%Execute() if rs.%SQLCODE=0 { set changed=1 set action="CREATED TABLE" } elseif (rs.%SQLCODE=201)!(rs.%Message["already exists") { set action="TABLE EXISTS" } else { write !,"SHARD_SQL_ERROR:",rs.%Message halt } } else { write !,"SHARD_PREPARE_ERROR:",$System.Status.GetErrorText(st) halt }
+{% for row in sharded_demo_rows %}
+set ins="INSERT INTO {{ sharded_schema }}.{{ sharded_table }} (ID, MRN, FamilyName, GivenName) SELECT {{ loop.index }}, '{{ row.mrn }}', '{{ row.family_name }}', '{{ row.given_name }}' WHERE NOT EXISTS (SELECT 1 FROM {{ sharded_schema }}.{{ sharded_table }} WHERE MRN='{{ row.mrn }}')"
+set stmt2=##class(%SQL.Statement).%New()
+set st2=stmt2.%Prepare(ins)
+if $System.Status.IsOK(st2) { set rs2=stmt2.%Execute() if rs2.%ROWCOUNT>0 { set changed=1 } }
+{% endfor %}
+write !,"SHARD_DEMO_ACTION:",action
+if changed { write !,"SHARD_DEMO_CHANGED:1" } else { write !,"SHARD_DEMO_CHANGED:0" }
+halt

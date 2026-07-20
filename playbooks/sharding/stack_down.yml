@@ -1,0 +1,28 @@
+---
+# =====================================================================
+# Stop and remove Topic 2 Docker stack (destructive with -v)
+# =====================================================================
+# Run: ansible-playbook playbooks/sharding/stack_down.yml -i inventories/sharding
+# Optional: -e sharding_remove_volumes=true
+- name: Tear down sharding Docker stack
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    sharding_remove_volumes: true
+
+  tasks:
+    - name: Stop and remove sharding containers
+      ansible.builtin.command:
+        argv: "{{ ['docker', 'compose', '-f', sharding_compose_file, 'down'] + (['-v', '--remove-orphans'] if sharding_remove_volumes | bool else []) }}"
+      changed_when: true
+
+    - name: Remove runtime data directories (optional destructive)
+      ansible.builtin.file:
+        path: "{{ sharding_compose_dir }}/{{ item }}"
+        state: absent
+      loop:
+        - shard_data1
+        - shard_data2
+        - shard_data3
+      when: sharding_remove_volumes | bool

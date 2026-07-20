@@ -1,0 +1,33 @@
+; =====================================================================
+; Read-only sharding cluster validation -> single-line SHARDING_JSON
+; =====================================================================
+; Runs on every shard node. Uses %SYSTEM.Cluster GetMetadata + ListNodes.
+zn "%SYS"
+set q=$char(34)
+set clusterNs=$SYSTEM.Cluster.ClusterNamespace()
+set nodeReady=0,metaOk=0,dataCount=0,computeCount=0,nodeType="",shardDb="",host=""
+set err=""
+if clusterNs="" { set err="not a cluster member" }
+if err="" {
+  set st=$SYSTEM.Cluster.IsNodeReady()
+  if $System.Status.IsOK(st) { set nodeReady=1 }
+  kill meta
+  set st=$SYSTEM.Cluster.GetMetadata(.meta)
+  if $System.Status.IsOK(st) { set metaOk=1 }
+  set myip="{{ shard_host_ip }}"
+  set id="" for { set id=$order(meta("Node",id)) quit:id=""  set t=meta("Node",id,"NodeType") if t="Data" { set dataCount=dataCount+1 } elseif t="Compute" { set computeCount=computeCount+1 } set h=meta("Node",id,"Host") if h=myip { set nodeType=t set shardDb=meta("Node",id,"ShardDatabase") set host=h } }
+}
+set j="{"
+set j=j_q_"node"_q_":"_q_$System.INetInfo.LocalHostName()_q_","
+set j=j_q_"cluster_namespace"_q_":"_q_clusterNs_q_","
+set j=j_q_"node_ready"_q_":"_$select(nodeReady:"true",1:"false")_","
+set j=j_q_"metadata_ok"_q_":"_$select(metaOk:"true",1:"false")_","
+set j=j_q_"data_node_count"_q_":"_dataCount_","
+set j=j_q_"compute_node_count"_q_":"_computeCount_","
+set j=j_q_"local_node_type"_q_":"_q_nodeType_q_","
+set j=j_q_"local_shard_database"_q_":"_q_shardDb_q_","
+set j=j_q_"local_host"_q_":"_q_host_q
+if err'="" { set j=j_","_q_"error"_q_":"_q_err_q }
+set j=j_"}"
+write !,"SHARDING_JSON:"_j
+halt

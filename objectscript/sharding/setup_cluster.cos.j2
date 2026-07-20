@@ -1,0 +1,16 @@
+; =====================================================================
+; Cluster node setup via %SYSTEM.Cluster (guarded, idempotent)
+; =====================================================================
+; Every executable statement is on ONE line (iris session REPL constraint).
+zn "%SYS"
+set action="",changed=0,err=""
+set ns=$SYSTEM.Cluster.ClusterNamespace()
+{% if shard_role == 'node1' %}
+if ns'="" { set action="SKIP already cluster member ns="_ns } else { set st=$SYSTEM.Cluster.Initialize("{{ cluster_namespace }}","{{ master_namespace }}","{{ cluster_allowed_connections }}","{{ shard_host_ip }}") if $System.Status.IsOK(st) { set changed=1 set action="INITIALIZED node1" } else { set err=$System.Status.GetErrorText(st) set action="INITIALIZE FAILED" } }
+{% else %}
+if ns'="" { set action="SKIP already cluster member ns="_ns } else { set st=$SYSTEM.Cluster.AttachAsDataNode("{{ cluster_url }}","{{ shard_host_ip }}") if $System.Status.IsOK(st) { set changed=1 set action="ATTACHED data node" } else { set err=$System.Status.GetErrorText(st) set action="ATTACH FAILED" } }
+{% endif %}
+if err'="" { write !,"CLUSTER_ERROR:",err }
+write !,"CLUSTER_ACTION:",action
+if changed { write !,"CLUSTER_CHANGED:1" } else { write !,"CLUSTER_CHANGED:0" }
+halt

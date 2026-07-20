@@ -1,0 +1,112 @@
+---
+- name: Assert sharding hands-on gate (see docs/sharding/version-license-gate.md)
+  ansible.builtin.assert:
+    that:
+      - sharding_hands_on_enabled | default(false) | bool
+    fail_msg: >-
+      Sharding automation is gated. Set sharding_hands_on_enabled=true in
+      inventories/sharding/group_vars/all.yml only after completing
+      docs/sharding/version-license-gate.md.
+  run_once: true
+
+- name: Apply ECP/cluster prerequisite CPF merge
+  ansible.builtin.include_role:
+    name: iris_sharding_common
+    tasks_from: push_file
+  vars:
+    src_template: "{{ playbook_dir }}/../../cpf/sharding/cluster-template.cpf.j2"
+    staged_name: "cluster-ecp-merge.cpf"
+    remote_path: "/tmp/cluster-ecp-merge.cpf"
+
+- name: Merge ECP prerequisites
+  ansible.builtin.include_role:
+    name: iris_sharding_common
+    tasks_from: iris_merge
+  vars:
+    remote_path: "/tmp/cluster-ecp-merge.cpf"
+    merge_label: "sharding-ecp"
+
+- name: Show ECP merge output
+  ansible.builtin.debug:
+    msg: "{{ merge_result.stdout_lines | default([]) }}"
+
+- name: Activate ECP CPF changes (iris stop/start)
+  ansible.builtin.include_role:
+    name: iris_sharding_common
+    tasks_from: iris_restart
+  vars:
+    restart_label: "activate ECP merge"
+  when: merge_result is changed
+
+- name: Stage and push cluster setup script
+  ansible.builtin.include_role:
+    name: iris_sharding_common
+    tasks_from: push_file
+  vars:
+    src_template: "{{ playbook_dir }}/../../objectscript/sharding/setup_cluster.cos.j2"
+    staged_name: "setup_cluster.cos"
+    remote_path: "/tmp/setup_cluster.cos"
+
+- name: Initialize or attach cluster node (%SYSTEM.Cluster)
+  ansible.builtin.include_role:
+    name: iris_sharding_common
+    tasks_from: iris_session
+  vars:
+    remote_path: "/tmp/setup_cluster.cos"
+    session_label: "cluster setup {{ shard_role }}"
+
+- name: Show cluster setup output
+  ansible.builtin.debug:
+    msg: "{{ session_result.stdout_lines | default([]) }}"
+
+- name: Activate cluster CPF after setup (ERROR #9378 recovery)
+  ansible.builtin.include_role:
+    name: iris_sharding_common
+    tasks_from: iris_restart
+  vars:
+    restart_label: "activate cluster setup"
+  when: "'#9378' in (session_result.stdout | default(''))"
+
+- name: Re-run cluster setup after activation restart (idempotent)
+  ansible.builtin.include_role:
+    name: iris_sharding_common
+    tasks_from: iris_session
+  vars:
+    remote_path: "/tmp/setup_cluster.cos"
+    session_label: "cluster setup post-restart {{ shard_role }}"
+  when: "'#9378' in (session_result.stdout | default(''))"
+
+- name: Stage and push cluster namespace probe
+  ansible.builtin.include_role:
+    name: iris_sharding_common
+    tasks_from: push_file
+  vars:
+    src_template: "{{ playbook_dir }}/../../objectscript/sharding/probe_cluster_ns.cos.j2"
+    staged_name: "probe_cluster_ns.cos"
+    remote_path: "/tmp/probe_cluster_ns.cos"
+
+- name: Probe cluster namespace
+  ansible.builtin.include_role:
+    name: iris_sharding_common
+    tasks_from: iris_session
+  vars:
+    remote_path: "/tmp/probe_cluster_ns.cos"
+    session_label: "cluster ns probe"
+
+- name: Extract cluster namespace from probe
+  ansible.builtin.set_fact:
+    cluster_ns_probe: >-
+      {{ (session_result.stdout_lines
+          | select('match', '^CLUSTER_NS:')
+          | list | last | default('CLUSTER_NS:')
+          | regex_replace('^CLUSTER_NS:', '')) }}
+
+- name: Assert node joined cluster namespace
+  ansible.builtin.assert:
+    that:
+      - cluster_ns_probe == cluster_namespace
+    fail_msg: >-
+      Cluster setup failed on {{ inventory_hostname }}: expected namespace
+      {{ cluster_namespace }}, got '{{ cluster_ns_probe }}'.
+      Session output: {{ session_result.stdout_lines | default([]) }}
+    success_msg: "{{ inventory_hostname }} is member of {{ cluster_namespace }}."

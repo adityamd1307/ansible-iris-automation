@@ -33,6 +33,12 @@ iris-env/IRISSystemManagement/webgatewayb/*
 stage_dir/security-sync/
 **/iris_security_*.xml
 
+# --- Topic 2 sharding Docker runtime (git-ignored durable mounts) ---
+iris-env/IRISShardCluster/shard_data1/
+iris-env/IRISShardCluster/shard_data2/
+iris-env/IRISShardCluster/shard_data3/
+iris-env/IRISShardCluster/.env
+
 # --- Captured run artifacts (keep the folder, ignore its output) ---
 evidence/*.log
 evidence/*.json
@@ -40,3 +46,8 @@ evidence/*.txt
 evidence/demo-notes.md
 !evidence/README.md
 !evidence/.gitkeep
+evidence/sharding/*.json
+evidence/sharding/*.log
+evidence/sharding/*.txt
+!evidence/sharding/README.md
+!evidence/sharding/.gitkeep

@@ -1,0 +1,5 @@
+---
+- name: Include iris_common iris_session
+  ansible.builtin.include_role:
+    name: iris_common
+    tasks_from: iris_session

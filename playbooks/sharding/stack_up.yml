@@ -1,0 +1,95 @@
+---
+# =====================================================================
+# Start Topic 2 Docker stack (IRISShardCluster)
+# =====================================================================
+# Run: ansible-playbook playbooks/sharding/stack_up.yml -i inventories/sharding \
+#        -e iris_key_source=/path/to/iris.key
+- name: Start sharding Docker stack
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Ensure compose directory exists
+      ansible.builtin.stat:
+        path: "{{ sharding_compose_dir }}"
+      register: compose_dir
+
+    - name: Fail if compose directory missing
+      ansible.builtin.fail:
+        msg: "Missing {{ sharding_compose_dir }} — clone repo completely."
+      when: not compose_dir.stat.exists
+
+    - name: Copy .env.example to .env when .env absent
+      ansible.builtin.copy:
+        src: "{{ sharding_compose_dir }}/.env.example"
+        dest: "{{ sharding_compose_dir }}/.env"
+        mode: "0644"
+        force: false
+
+    - name: Ensure runtime license directories exist
+      ansible.builtin.file:
+        path: "{{ sharding_compose_dir }}/{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - shard_data1
+        - shard_data2
+        - shard_data3
+
+    - name: Copy iris.key into each data node runtime folder
+      ansible.builtin.copy:
+        src: "{{ iris_key_source }}"
+        dest: "{{ sharding_compose_dir }}/{{ item }}/iris.key"
+        mode: "0600"
+      loop:
+        - shard_data1
+        - shard_data2
+        - shard_data3
+      when: iris_key_source is defined
+
+    - name: Warn when iris_key_source not provided
+      ansible.builtin.debug:
+        msg: >-
+          iris_key_source not set — ensure iris.key exists under
+          shard_data1/, shard_data2/, shard_data3/ before containers start.
+      when: iris_key_source is not defined
+
+    - name: Validate docker compose configuration
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - -f
+          - "{{ sharding_compose_file }}"
+          - config
+          - --quiet
+      changed_when: false
+
+    - name: Start sharding stack
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - -f
+          - "{{ sharding_compose_file }}"
+          - up
+          - -d
+          - --pull
+          - missing
+      changed_when: true
+
+    - name: Show container status
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - -f
+          - "{{ sharding_compose_file }}"
+          - ps
+      changed_when: false
+      register: compose_ps
+
+    - name: Print compose ps
+      ansible.builtin.debug:
+        msg: "{{ compose_ps.stdout_lines }}"

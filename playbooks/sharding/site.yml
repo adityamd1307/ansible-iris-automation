@@ -1,0 +1,9 @@
+---
+# =====================================================================
+# Optional end-to-end: compose up + configure + validate
+# =====================================================================
+# Run: ansible-playbook playbooks/sharding/site.yml -i inventories/sharding \
+#        -e sharding_hands_on_enabled=true \
+#        -e iris_key_source=/path/to/iris.key
+- import_playbook: stack_up.yml
+- import_playbook: configure_sharding.yml

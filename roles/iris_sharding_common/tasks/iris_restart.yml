@@ -1,0 +1,38 @@
+---
+- name: "iris stop/start (docker) - {{ restart_label | default('activate CPF') }}"
+  ansible.builtin.shell: >-
+    docker exec {{ iris_container | default(inventory_hostname) }}
+    iris stop {{ iris_instance | default('IRIS') }} quietly
+    && docker exec {{ iris_container | default(inventory_hostname) }}
+    iris start {{ iris_instance | default('IRIS') }}
+  register: iris_restart_docker
+  changed_when: true
+  when: iris_exec_mode == 'docker'
+
+- name: "iris stop/start (direct) - {{ restart_label | default('activate CPF') }}"
+  ansible.builtin.shell: >-
+    iris stop {{ iris_instance | default('IRIS') }} quietly
+    && iris start {{ iris_instance | default('IRIS') }}
+  register: iris_restart_direct
+  changed_when: true
+  when: iris_exec_mode == 'direct'
+
+- name: Wait for IRIS after stop/start
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - "{{ iris_container | default(inventory_hostname) }}"
+      - sh
+      - -c
+      - >-
+        iris session {{ iris_instance | default('IRIS') }} <<'EOF'
+        write "OK"
+        halt
+        EOF
+  register: iris_up_probe
+  retries: 30
+  delay: 5
+  until: iris_up_probe.rc == 0
+  changed_when: false
+  when: iris_exec_mode == 'docker'

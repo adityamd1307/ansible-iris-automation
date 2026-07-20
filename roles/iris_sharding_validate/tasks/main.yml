@@ -1,0 +1,82 @@
+---
+- name: Stage and push sharding validation script
+  ansible.builtin.include_role:
+    name: iris_sharding_common
+    tasks_from: push_file
+  vars:
+    src_template: "{{ playbook_dir }}/../../objectscript/sharding/validate_sharding.cos.j2"
+    staged_name: "validate_sharding.cos"
+    remote_path: "/tmp/validate_sharding.cos"
+
+- name: Run sharding validation (read-only)
+  ansible.builtin.include_role:
+    name: iris_sharding_common
+    tasks_from: iris_session
+  vars:
+    remote_path: "/tmp/validate_sharding.cos"
+    session_label: "sharding validation"
+
+- name: Extract and parse SHARDING_JSON
+  ansible.builtin.set_fact:
+    sharding: >-
+      {{ (session_result.stdout_lines
+          | select('match', '^SHARDING_JSON:')
+          | list | last | regex_replace('^SHARDING_JSON:', '')) | from_json }}
+
+- name: Show sharding validation result
+  ansible.builtin.debug:
+    msg: "{{ sharding }}"
+
+- name: Stage and push node ready probe
+  ansible.builtin.include_role:
+    name: iris_sharding_common
+    tasks_from: push_file
+  vars:
+    src_template: "{{ playbook_dir }}/../../objectscript/sharding/probe_node_ready.cos.j2"
+    staged_name: "probe_node_ready.cos"
+    remote_path: "/tmp/probe_node_ready.cos"
+
+- name: Probe IsNodeReady
+  ansible.builtin.include_role:
+    name: iris_sharding_common
+    tasks_from: iris_session
+  vars:
+    remote_path: "/tmp/probe_node_ready.cos"
+    session_label: "node ready probe"
+
+- name: Merge node_ready into sharding fact
+  ansible.builtin.set_fact:
+    sharding: "{{ sharding | combine({'node_ready': ('NODE_READY:true' in (session_result.stdout | default('')))}) }}"
+
+- name: Show merged sharding validation result
+  ansible.builtin.debug:
+    msg: "{{ sharding }}"
+
+- name: Assert cluster membership
+  ansible.builtin.assert:
+    that:
+      - sharding.cluster_namespace | default('') == cluster_namespace
+      - sharding.metadata_ok | default(false)
+      - sharding.local_node_type | default('') == 'Data'
+    fail_msg: "Sharding validation FAILED on {{ inventory_hostname }} — see JSON above."
+    success_msg: "Sharding validation PASSED on {{ inventory_hostname }}."
+
+- name: Assert expected data node count (run once, node 1)
+  ansible.builtin.assert:
+    that:
+      - sharding.data_node_count | int == sharding_data_node_count | int
+    fail_msg: >-
+      Expected {{ sharding_data_node_count }} data nodes, saw
+      {{ sharding.data_node_count | default('unknown') }}.
+    success_msg: "Cluster has {{ sharding.data_node_count }} data nodes as expected."
+  when:
+    - sharding_enforce_node_count | default(true) | bool
+    - inventory_hostname == 'shard_data1'
+
+- name: Write sharding evidence (optional)
+  ansible.builtin.copy:
+    dest: "{{ playbook_dir }}/../../evidence/sharding/validation-{{ iris_env }}-{{ inventory_hostname }}.json"
+    content: "{{ sharding | to_nice_json }}\n"
+    mode: "0644"
+  delegate_to: localhost
+  when: write_evidence | default(false) | bool

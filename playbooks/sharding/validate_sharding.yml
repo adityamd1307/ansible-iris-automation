@@ -1,0 +1,14 @@
+---
+# =====================================================================
+# Read-only sharding cluster validation (SHARDING_JSON per node)
+# =====================================================================
+# Run: ansible-playbook playbooks/sharding/validate_sharding.yml -i inventories/sharding
+# Optional: -e write_evidence=true
+- name: Validate sharded cluster readiness
+  hosts: shard_nodes
+  gather_facts: false
+  vars:
+    write_evidence: false
+
+  roles:
+    - iris_sharding_validate

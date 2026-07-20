@@ -18,6 +18,8 @@ npx @mermaid-js/mermaid-cli -i ansible-iris-architecture.md -o ansible-iris-arch
 
 or paste the code block into https://mermaid.live and export.
 
-> Topic 2 (`sharding-architecture.png`) and the combined future
-> architecture are Week-3/Week-4 deliverables and are intentionally not
-> included in this Week-2 Topic-1 package.
+> Topic 2 diagrams:
+> - [sharding-architecture.md](sharding-architecture.md) — data nodes, node 1, optional compute
+> - [combined-future-architecture.md](combined-future-architecture.md) — conceptual Topic 1 + Topic 2
+>
+> Export PNGs with the Mermaid CLI (see commands in each file).
